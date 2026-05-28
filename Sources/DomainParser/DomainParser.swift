@@ -13,19 +13,17 @@ public enum DomainParserError: Error {
     case missingPublicSuffixListResource
 }
 
-/// Uses the public suffix list
+/// Parses hostnames using the bundled Public Suffix List.
 public struct DomainParser: DomainParserProtocol {
-    
+
     let parsedRules: ParsedRules
-    
+
     let onlyBasicRules: Bool
-    
+
     let basicDomainParser: BasicDomainParser
-    
-    /// Parse the `public_suffix_list` file and build the set of Rules
-    /// Parameters:
-    ///   - QuickParsing: IF true, the `exception` and `wildcard` rules will be ignored
-    public init(quickParsing: Bool = false) throws {
+
+    /// Loads the bundled Public Suffix List and builds the rule set.
+    public init() throws {
         guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
             throw DomainParserError.missingPublicSuffixListResource
         }
@@ -33,6 +31,24 @@ public struct DomainParser: DomainParserProtocol {
 
         // We don't need to sort the rules from "public_suffix_list" since
         // the file has already been sorted by the update script.
+        try self.init(rulesData: data, quickParsing: false, sortRules: false)
+    }
+
+    /// Loads the bundled Public Suffix List with optional wildcard/exception skipping.
+    ///
+    /// - Parameter quickParsing: If `true`, exception and wildcard rules are
+    ///   ignored at parse time.
+    ///
+    /// Deprecated: use ``BasicDomainParser`` directly for the basic-only path.
+    /// It exposes the same lookup without paying for wildcard/exception
+    /// parsing up front, and the API surface is clearer about what's
+    /// happening at the call site.
+    @available(*, deprecated, message: "Use BasicDomainParser directly for the basic-only path; use DomainParser() for full PSL parsing.")
+    public init(quickParsing: Bool) throws {
+        guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
+            throw DomainParserError.missingPublicSuffixListResource
+        }
+        let data = try Data(contentsOf: url)
         try self.init(rulesData: data, quickParsing: quickParsing, sortRules: false)
     }
 
