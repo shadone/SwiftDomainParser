@@ -39,10 +39,10 @@ class RulesParser {
         if (sortRules) {
             // Sort the collections from big to small so that the highest priority rules are first.
             self.wildcardRules = self.wildcardRules.mapValues { (rules: [Rule]) in
-                rules.sorted(by: { $0 > $1 })
+                rules.sorted(by: { $0.rankingScore > $1.rankingScore })
             }
             self.exceptions = self.exceptions.mapValues { (rules: [Rule]) in
-                rules.sorted(by: { $0 > $1 })
+                rules.sorted(by: { $0.rankingScore > $1.rankingScore })
             }
         }
 

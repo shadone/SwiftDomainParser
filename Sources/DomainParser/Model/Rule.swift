@@ -84,14 +84,3 @@ extension Rule {
 
 }
 
-// MARK: - Comparable
-
-extension Rule: Comparable {
-    static func < (lhs: Rule, rhs: Rule) -> Bool {
-        return lhs.rankingScore < rhs.rankingScore
-    }
-
-    static func == (lhs: Rule, rhs: Rule) -> Bool {
-        return lhs.rankingScore == rhs.rankingScore
-    }
-}

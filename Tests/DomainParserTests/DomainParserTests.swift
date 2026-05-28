@@ -238,7 +238,8 @@ class DomainParserTests: XCTestCase {
     }
 
     func checkRuleArrayIsSorted(lastLabel: String, ruleArray: [Rule]) {
-        let rulesAreSorted = zip(ruleArray, ruleArray.dropFirst()).allSatisfy(>=)
+        let rulesAreSorted = zip(ruleArray, ruleArray.dropFirst())
+            .allSatisfy { $0.rankingScore >= $1.rankingScore }
         XCTAssertTrue(rulesAreSorted, "Rules for last-label \"\(lastLabel)\" are not sorted!")
     }
 
