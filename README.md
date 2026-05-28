@@ -24,21 +24,21 @@ domain — `example.co.uk` is owned by one party, but the string `co.uk` alone
 isn't. The list also handles wildcards (`*.ck`) and exceptions (`!www.ck`);
 see the [format spec](https://github.com/publicsuffix/list/wiki/Format).
 
-| Host                       | Domain           | Public suffix | Rule       |
-|----------------------------|------------------|---------------|------------|
-| `auth.example.com`         | `example.com`    | `com`         | `com`      |
-| `sub.example.co.uk`        | `example.co.uk`  | `co.uk`       | `co.uk`    |
-| `sub.example.gov.ck`       | `example.gov.ck` | `gov.ck`      | `*.ck`     |
-| `sub.example.any.ck`       | `example.any.ck` | `any.ck`      | `*.ck`     |
-| `www.ck`                   | `www.ck`         | `ck`          | `!www.ck`  |
-| `sub.www.ck`               | `www.ck`         | `ck`          | `!www.ck`  |
+| Host                       | Registrable domain | Public suffix | Rule       |
+|----------------------------|--------------------|---------------|------------|
+| `auth.example.com`         | `example.com`      | `com`         | `com`      |
+| `sub.example.co.uk`        | `example.co.uk`    | `co.uk`       | `co.uk`    |
+| `sub.example.gov.ck`       | `example.gov.ck`   | `gov.ck`      | `*.ck`     |
+| `sub.example.any.ck`       | `example.any.ck`   | `any.ck`      | `*.ck`     |
+| `www.ck`                   | `www.ck`           | `ck`          | `!www.ck`  |
+| `sub.www.ck`               | `www.ck`           | `ck`          | `!www.ck`  |
 
 ## Installation
 
 Swift Package Manager:
 
 ```swift
-.package(url: "https://github.com/shadone/SwiftDomainParser.git", branch: "master"),
+.package(url: "https://github.com/shadone/SwiftDomainParser.git", from: "2.0.0"),
 ```
 
 then add `"DomainParser"` to your target's dependencies.
@@ -59,8 +59,8 @@ isolation domains.
 
 ```swift
 let result = parser.parse(host: "awesome.example.co.uk")
-result?.domain        // "example.co.uk"
-result?.publicSuffix  // "co.uk"
+result?.registrableDomain  // "example.co.uk"
+result?.publicSuffix       // "co.uk"
 ```
 
 Host comparison is case-insensitive; `EXAMPLE.com`, `example.COM`, and
@@ -70,8 +70,8 @@ Host comparison is case-insensitive; `EXAMPLE.com`, `example.COM`, and
 
 ```swift
 let result = parser.parse(url: URL(string: "https://www.example.com/path")!)
-result?.domain        // "example.com"
-result?.publicSuffix  // "com"
+result?.registrableDomain  // "example.com"
+result?.publicSuffix       // "com"
 ```
 
 Returns `nil` if the URL has no host component (e.g. `file:///etc/hosts`).
@@ -84,7 +84,7 @@ wildcard/exception logic on the hot path:
 
 ```swift
 let basic = try BasicDomainParser()
-basic.parse(host: "example.com")?.domain  // "example.com"
+basic.parse(host: "example.com")?.registrableDomain  // "example.com"
 ```
 
 `BasicDomainParser` requires lowercase input. `DomainParser` lowercases for
@@ -93,15 +93,18 @@ you internally; if you reach for `BasicDomainParser` directly, pass
 
 ### Error handling
 
-Both `DomainParser()` and `BasicDomainParser()` throw `DomainParserError`:
+`DomainParser()` and `BasicDomainParser()` both `throws(DomainParserError)`,
+so `catch` can be exhaustive without a fallthrough clause:
 
 ```swift
 do {
     let parser = try DomainParser()
-} catch DomainParserError.missingPublicSuffixListResource {
+} catch .missingPublicSuffixListResource {
     // bundled PSL file missing - should never happen in shipping builds
-} catch DomainParserError.ruleParsingError(let message) {
+} catch .ruleParsingError(let message) {
     // bundled PSL file is malformed UTF-8 or has an unsupported rule shape
+} catch .bundleLoadFailed(let underlying) {
+    // an I/O error reading the bundled file (e.g. CocoaError from Data(contentsOf:))
 }
 ```
 
