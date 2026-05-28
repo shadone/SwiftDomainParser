@@ -1,13 +1,4 @@
-//
-//  BasicDomainParser.swift
-//  DomainParser
-//
-//  Created by Jason Akakpo on 04/09/2018.
-//  Copyright © 2018 Dashlane. All rights reserved.
-//
-
 import Foundation
-
 
 /// Parses a hostname using only the basic (non-wildcard, non-exception) suffix rules.
 /// Examples of valid rules: **com**, **co.uk**, **ide.kyoto.jp**.
