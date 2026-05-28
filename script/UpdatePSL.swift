@@ -15,7 +15,13 @@ import Foundation
 
 enum PSLUpdateError: Error {
     case notUTF8Convertible
+    case unexpectedContent(reason: String)
 }
+
+/// Section marker the official PSL file contains at the top of the ICANN
+/// section. Used as a low-effort sanity check that the download is actually a
+/// PSL and not (e.g.) an HTML error page from a CDN or a hijack.
+let pslICANNMarker = "===BEGIN ICANN DOMAINS==="
 
 struct PublicSuffixListNormalizer {
     let data: Data
@@ -57,6 +63,19 @@ let targetURL = URL(fileURLWithPath: #filePath)
 
 do {
     let (raw, _) = try await URLSession.shared.data(from: sourceURL)
+
+    // Sanity-check before normalizing: if the server returned an HTML error
+    // page or something hijacked the response, the official ICANN section
+    // marker will be missing. Refuse to overwrite the bundled file in that
+    // case rather than silently committing garbage.
+    guard let text = String(data: raw, encoding: .utf8) else {
+        throw PSLUpdateError.notUTF8Convertible
+    }
+    guard text.contains(pslICANNMarker) else {
+        throw PSLUpdateError.unexpectedContent(
+            reason: "downloaded body does not contain \"\(pslICANNMarker)\" - aborting refresh")
+    }
+
     let normalized = try PublicSuffixListNormalizer(data: raw).normalize()
     try normalized.write(to: targetURL)
     print("Wrote \(normalized.count) bytes to \(targetURL.path)")
