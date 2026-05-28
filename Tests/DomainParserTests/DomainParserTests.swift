@@ -18,6 +18,30 @@ class DomainParserPerformanceTests: XCTestCase {
         }
     }
 
+    /// Per-call parse throughput on the real bundled PSL. Measures the cost
+    /// of parser.parse(host:) across a mix of common host shapes, excluding
+    /// init cost (built once outside the measure block).
+    func testMeasureParseThroughputOnRealPSL() {
+        let parser = try! DomainParser()
+        let hosts: [String] = [
+            "www.example.com",
+            "api.example.co.uk",
+            "deep.subdomain.example.gov.uk",
+            "shishi.公司.cn",
+            "shishi.xn--55qx5d.cn",
+            "metro.tokyo.jp",
+            "b.test.ck",
+            "host.with.no.matching.suffix.zzz",  // miss
+            "github.com",
+            "amazon.co.uk",
+        ]
+        measure {
+            for _ in 0..<1000 {
+                for h in hosts { _ = parser.parse(host: h) }
+            }
+        }
+    }
+
     func testMeasureParseManyWildcardAndExceptionRules() {
         let alphabet = "abcdefghijklmnopqrstuvwxyz"
         var rulesArray: [String] = []
