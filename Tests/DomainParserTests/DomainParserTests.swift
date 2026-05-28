@@ -32,7 +32,7 @@ class DomainParserPerformanceTests: XCTestCase {
         }
 
         let rulesData = Data(rulesArray.joined(separator: "\n").utf8)
-        let customDomainParser = try! DomainParser(rulesData: rulesData)
+        let customDomainParser = try! DomainParser(_rulesData: rulesData)
 
         // Sanity: a normally-valid host is not valid under this custom rule set.
         XCTAssertNil(customDomainParser.parse(host: "google.fr")?.domain)

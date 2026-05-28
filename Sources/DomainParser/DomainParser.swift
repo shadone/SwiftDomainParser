@@ -16,7 +16,9 @@ public enum DomainParserError: Error {
 /// Parses hostnames using the bundled Public Suffix List.
 public struct DomainParser: DomainParserProtocol {
 
-    let parsedRules: ParsedRules
+    /// Test-only seam. Exposed at `internal` so `@testable import` can read it;
+    /// underscore-prefixed to signal "do not depend on me outside tests."
+    let _parsedRules: ParsedRules
 
     let onlyBasicRules: Bool
 
@@ -31,7 +33,7 @@ public struct DomainParser: DomainParserProtocol {
 
         // We don't need to sort the rules from "public_suffix_list" since
         // the file has already been sorted by the update script.
-        try self.init(rulesData: data, quickParsing: false, sortRules: false)
+        try self.init(_rulesData: data, quickParsing: false, sortRules: false)
     }
 
     /// Loads the bundled Public Suffix List with optional wildcard/exception skipping.
@@ -49,12 +51,14 @@ public struct DomainParser: DomainParserProtocol {
             throw DomainParserError.missingPublicSuffixListResource
         }
         let data = try Data(contentsOf: url)
-        try self.init(rulesData: data, quickParsing: quickParsing, sortRules: false)
+        try self.init(_rulesData: data, quickParsing: quickParsing, sortRules: false)
     }
 
-    init(rulesData: Data, quickParsing: Bool = false, sortRules: Bool = true) throws {
-        parsedRules = try RulesParser.parse(raw: rulesData, sortRules: sortRules)
-        basicDomainParser = BasicDomainParser(suffixes: parsedRules.basicRules)
+    /// Test-only seam. Underscore-prefixed to signal "do not depend on me
+    /// outside tests."
+    init(_rulesData rulesData: Data, quickParsing: Bool = false, sortRules: Bool = true) throws {
+        _parsedRules = try RulesParser.parse(raw: rulesData, sortRules: sortRules)
+        basicDomainParser = BasicDomainParser(suffixes: _parsedRules.basicRules)
         onlyBasicRules = quickParsing
     }
 
@@ -77,8 +81,8 @@ public struct DomainParser: DomainParserProtocol {
 
         let lastLabel = String(lastLabelSubstring)
         let isMatching: (Rule) -> Bool = { $0.isMatching(hostLabels: hostComponents) }
-        let rule = parsedRules.exceptions[lastLabel]?.first(where: isMatching) ??
-                   parsedRules.wildcardRules[lastLabel]?.first(where: isMatching)
+        let rule = _parsedRules.exceptions[lastLabel]?.first(where: isMatching) ??
+                   _parsedRules.wildcardRules[lastLabel]?.first(where: isMatching)
 
         return rule?.parse(hostLabels: hostComponents)
     }

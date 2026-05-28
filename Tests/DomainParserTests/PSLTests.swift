@@ -155,7 +155,7 @@ struct DomainParserSuite {
             "!pref.hokkaido.jp",
             "!metro.tokyo.jp",
         ].joined(separator: "\n")
-        let custom = try DomainParser(rulesData: Data(rules.utf8))
+        let custom = try DomainParser(_rulesData: Data(rules.utf8))
 
         // Sanity: a domain that would normally resolve doesn't under this custom set.
         #expect(custom.parse(host: "google.fr")?.domain == nil)
@@ -182,11 +182,11 @@ struct DomainParserSuite {
             zip(rules, rules.dropFirst())
                 .allSatisfy { $0.rankingScore >= $1.rankingScore }
         }
-        for (lastLabel, rules) in parser.parsedRules.wildcardRules {
+        for (lastLabel, rules) in parser._parsedRules.wildcardRules {
             #expect(isSortedByDescendingScore(rules),
                     "wildcard rules for \"\(lastLabel)\" are not sorted")
         }
-        for (lastLabel, rules) in parser.parsedRules.exceptions {
+        for (lastLabel, rules) in parser._parsedRules.exceptions {
             #expect(isSortedByDescendingScore(rules),
                     "exception rules for \"\(lastLabel)\" are not sorted")
         }
