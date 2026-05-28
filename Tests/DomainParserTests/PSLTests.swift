@@ -187,6 +187,29 @@ struct DomainParserSuite {
         #expect(basic.parse(host: "b.test.ck") == nil)
     }
 
+    // MARK: - The bundled PSL .dat file is sorted by descending label count
+
+    /// The update script (`swift script/UpdatePSL.swift`) writes the .dat file
+    /// with rules sorted by descending label count, so the parser can rely on
+    /// "first match wins" semantics. If someone hand-edits the file without
+    /// re-running the script, this invariant breaks - and that's a real bug,
+    /// since `parseExceptionsAndWildCardRules` returns the first matching rule.
+    ///
+    /// Fail CI if the bundled file is not sorted.
+    @Test func bundledPSLFileIsSortedByDescendingLabelCount() throws {
+        let url = try #require(Bundle.module.url(forResource: "public_suffix_list",
+                                                 withExtension: "dat"))
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let labelCounts = text
+            .split(separator: "\n")
+            .map { $0.split(separator: ".").count }
+
+        for (index, pair) in zip(labelCounts, labelCounts.dropFirst()).enumerated() {
+            #expect(pair.0 >= pair.1,
+                    "Bundled PSL is not sorted by descending label count: line \(index + 1) has \(pair.0) labels but line \(index + 2) has \(pair.1). Run `swift script/UpdatePSL.swift` to re-normalize.")
+        }
+    }
+
     // MARK: - The bundled PSL is already sorted
 
     /// The local PSL is sorted at update time (in script/UpdatePSL.swift) so

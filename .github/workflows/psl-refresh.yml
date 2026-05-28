@@ -1,0 +1,49 @@
+name: Weekly PSL refresh
+
+on:
+  schedule:
+    # Mondays at 08:00 UTC
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    name: Refresh public_suffix_list.dat
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Refresh PSL from publicsuffix.org
+        run: swift script/UpdatePSL.swift
+
+      - name: Verify tests still pass
+        run: swift test
+
+      - name: Open PR if PSL changed
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: psl-refresh
+          base: master
+          delete-branch: true
+          title: 'chore(psl): weekly refresh'
+          commit-message: 'data: refresh public_suffix_list.dat from publicsuffix.org'
+          body: |
+            Weekly automated refresh of the bundled Public Suffix List.
+
+            Source: https://publicsuffix.org/list/public_suffix_list.dat
+            Normalized by `swift script/UpdatePSL.swift` (strip comments, sort
+            by descending label count).
+
+            Tests passed before opening this PR. The `Tests` workflow will
+            re-run on the PR to confirm.
+          labels: |
+            automated
+            psl
