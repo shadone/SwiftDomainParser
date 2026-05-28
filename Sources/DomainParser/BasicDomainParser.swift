@@ -18,8 +18,17 @@ import Foundation
 public struct BasicDomainParser: DomainParserProtocol {
 
     let suffixes: Set<String>
+
     init(suffixes: Set<String>) {
         self.suffixes = suffixes
+    }
+
+    /// Loads the bundled Public Suffix List and keeps only the basic-rule
+    /// suffix set. Use this when you don't need wildcard/exception matching:
+    /// the lookup runs as one `Set<String>.contains` per host label.
+    public init() throws {
+        let parsed = try RulesParser.parse(raw: _loadBundledPSLData(), sortRules: false)
+        self.init(suffixes: parsed.basicRules)
     }
 
     public func parse(host: String) -> ParsedHost? {

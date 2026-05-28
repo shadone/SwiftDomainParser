@@ -172,6 +172,21 @@ struct DomainParserSuite {
         #expect(custom.parse(host: "metro.tokyo.jp")?.domain == "metro.tokyo.jp")
     }
 
+    // MARK: - BasicDomainParser standalone
+
+    /// BasicDomainParser is publicly constructible and produces the same
+    /// answers as DomainParser for plain (non-wildcard, non-exception) hosts.
+    @Test func basicDomainParserStandalone() throws {
+        let basic = try BasicDomainParser()
+        #expect(basic.parse(host: "example.com") ==
+                ParsedHost(publicSuffix: "com", domain: "example.com"))
+        #expect(basic.parse(host: "api.example.co.uk") ==
+                ParsedHost(publicSuffix: "co.uk", domain: "example.co.uk"))
+        // Basic parser does NOT handle wildcards - "b.test.ck" is unmatched
+        // (the wildcard "*.ck" is parsed but not consulted on this code path).
+        #expect(basic.parse(host: "b.test.ck") == nil)
+    }
+
     // MARK: - The bundled PSL is already sorted
 
     /// The local PSL is sorted at update time (in script/UpdatePSL.swift) so

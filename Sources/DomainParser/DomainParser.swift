@@ -13,6 +13,15 @@ public enum DomainParserError: Error {
     case missingPublicSuffixListResource
 }
 
+/// Loads the bundled `public_suffix_list.dat` resource as raw bytes.
+/// Shared by `DomainParser.init` and `BasicDomainParser.init`.
+internal func _loadBundledPSLData() throws -> Data {
+    guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
+        throw DomainParserError.missingPublicSuffixListResource
+    }
+    return try Data(contentsOf: url)
+}
+
 /// Parses hostnames using the bundled Public Suffix List.
 public struct DomainParser: DomainParserProtocol {
 
@@ -26,14 +35,9 @@ public struct DomainParser: DomainParserProtocol {
 
     /// Loads the bundled Public Suffix List and builds the rule set.
     public init() throws {
-        guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
-            throw DomainParserError.missingPublicSuffixListResource
-        }
-        let data = try Data(contentsOf: url)
-
         // We don't need to sort the rules from "public_suffix_list" since
         // the file has already been sorted by the update script.
-        try self.init(_rulesData: data, quickParsing: false, sortRules: false)
+        try self.init(_rulesData: _loadBundledPSLData(), quickParsing: false, sortRules: false)
     }
 
     /// Loads the bundled Public Suffix List with optional wildcard/exception skipping.
@@ -45,13 +49,9 @@ public struct DomainParser: DomainParserProtocol {
     /// It exposes the same lookup without paying for wildcard/exception
     /// parsing up front, and the API surface is clearer about what's
     /// happening at the call site.
-    @available(*, deprecated, message: "Use BasicDomainParser directly for the basic-only path; use DomainParser() for full PSL parsing.")
+    @available(*, deprecated, message: "Use BasicDomainParser() for the basic-only path; use DomainParser() for full PSL parsing.")
     public init(quickParsing: Bool) throws {
-        guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
-            throw DomainParserError.missingPublicSuffixListResource
-        }
-        let data = try Data(contentsOf: url)
-        try self.init(_rulesData: data, quickParsing: quickParsing, sortRules: false)
+        try self.init(_rulesData: _loadBundledPSLData(), quickParsing: quickParsing, sortRules: false)
     }
 
     /// Test-only seam. Underscore-prefixed to signal "do not depend on me
