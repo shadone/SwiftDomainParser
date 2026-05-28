@@ -178,6 +178,15 @@ class DomainParserTests: XCTestCase {
                        ParsedHost(publicSuffix: "ck", domain: "www.ck"))
     }
 
+    func testParseURLConvenience() {
+        XCTAssertEqual(domainParser.parse(url: URL(string: "https://www.example.com/path?q=1")!),
+                       ParsedHost(publicSuffix: "com", domain: "example.com"))
+        XCTAssertEqual(domainParser.parse(url: URL(string: "https://api.example.co.uk")!),
+                       ParsedHost(publicSuffix: "co.uk", domain: "example.co.uk"))
+        // No host -> nil
+        XCTAssertNil(domainParser.parse(url: URL(string: "file:///etc/hosts")!))
+    }
+
     func testTLDWithNoDomain() {
         XCTAssertEqual(domainParser.parse(host: "com"), ParsedHost(publicSuffix: "com", domain: nil))
         XCTAssertEqual(domainParser.parse(host: "co.uk"), ParsedHost(publicSuffix: "co.uk", domain: nil))
