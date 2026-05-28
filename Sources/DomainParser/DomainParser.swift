@@ -37,7 +37,7 @@ public struct DomainParser: DomainParserProtocol {
     }
 
     init(rulesData: Data, quickParsing: Bool = false, sortRules: Bool = true) throws {
-        parsedRules = try RulesParser().parse(raw: rulesData, sortRules: sortRules)
+        parsedRules = try RulesParser.parse(raw: rulesData, sortRules: sortRules)
         basicDomainParser = BasicDomainParser(suffixes: parsedRules.basicRules)
         onlyBasicRules = quickParsing
     }

@@ -18,62 +18,57 @@ struct ParsedRules {
     let basicRules: Set<String>
 }
 
-class RulesParser {
+enum RulesParser {
 
-    /// Dictionary of rule arrays indexed by the last label of a rule.
-    var exceptions = [String: [Rule]]()
-    /// Dictionary of rule arrays indexed by the last label of a rule.
-    var wildcardRules = [String: [Rule]]()
-    /// Set of suffixes
-    var basicRules = Set<String>()
-    
-    /// Parse the Data to extract an array of Rules. The array is sorted by importance.
-    func parse(raw: Data, sortRules: Bool) throws -> ParsedRules {
+    /// Parse the Data to extract the rule collections, optionally sorted by importance.
+    static func parse(raw: Data, sortRules: Bool) throws -> ParsedRules {
         guard let rulesText = String(data: raw, encoding: .utf8) else {
             throw DomainParserError.ruleParsingError(message: "Can't parse rules data. Is it in UTF-8 format?")
         }
 
-        let allRules = rulesText.split(separator: "\n")
-        try allRules.forEach(parseRule)
+        var exceptions: [String: [Rule]] = [:]
+        var wildcardRules: [String: [Rule]] = [:]
+        var basicRules: Set<String> = []
 
-        if (sortRules) {
-            // Sort the collections from big to small so that the highest priority rules are first.
-            self.wildcardRules = self.wildcardRules.mapValues { (rules: [Rule]) in
-                rules.sorted(by: { $0.rankingScore > $1.rankingScore })
-            }
-            self.exceptions = self.exceptions.mapValues { (rules: [Rule]) in
-                rules.sorted(by: { $0.rankingScore > $1.rankingScore })
-            }
+        for line in rulesText.split(separator: "\n") {
+            try parse(line: line,
+                      into: &exceptions,
+                      wildcardRules: &wildcardRules,
+                      basicRules: &basicRules)
         }
 
-        return ParsedRules.init(exceptions: self.exceptions,
-                                wildcardRules: self.wildcardRules,
-                                basicRules: self.basicRules)
+        if sortRules {
+            // Sort the collections from big to small so that the highest-priority rules are first.
+            let byScoreDescending: (Rule, Rule) -> Bool = { $0.rankingScore > $1.rankingScore }
+            wildcardRules = wildcardRules.mapValues { $0.sorted(by: byScoreDescending) }
+            exceptions = exceptions.mapValues { $0.sorted(by: byScoreDescending) }
+        }
+
+        return ParsedRules(exceptions: exceptions,
+                           wildcardRules: wildcardRules,
+                           basicRules: basicRules)
     }
 
-    private func parseRule(line: Substring) throws {
+    private static func parse(line: Substring,
+                              into exceptions: inout [String: [Rule]],
+                              wildcardRules: inout [String: [Rule]],
+                              basicRules: inout Set<String>) throws {
         if line.contains("*") {
             let rule = Rule(raw: line)
-
             guard case .text(let lastLabelText) = rule.parts.last else {
-                let msg = "Last label of PSL rule must be text (Rule: \(line))"
-                throw DomainParserError.ruleParsingError(message: msg)
+                throw DomainParserError.ruleParsingError(
+                    message: "Last label of PSL rule must be text (Rule: \(line))")
             }
-
-            self.wildcardRules[lastLabelText, default: []].append(rule)
-
+            wildcardRules[lastLabelText, default: []].append(rule)
         } else if line.starts(with: "!") {
             let rule = Rule(raw: line)
-
             guard case .text(let lastLabelText) = rule.parts.last else {
-                let msg = "Last label of PSL rule must be text (Rule: \(line))"
-                throw DomainParserError.ruleParsingError(message: msg)
+                throw DomainParserError.ruleParsingError(
+                    message: "Last label of PSL rule must be text (Rule: \(line))")
             }
-
-            self.exceptions[lastLabelText, default: []].append(rule)
-
+            exceptions[lastLabelText, default: []].append(rule)
         } else {
-            self.basicRules.insert(String(line))
+            basicRules.insert(String(line))
         }
     }
 }
