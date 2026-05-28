@@ -25,7 +25,7 @@ public struct DomainParser: DomainParserProtocol {
     /// Parameters:
     ///   - QuickParsing: IF true, the `exception` and `wildcard` rules will be ignored
     public init(quickParsing: Bool = false) throws {
-        let url = Bundle.current.url(forResource: "public_suffix_list", withExtension: "dat")!
+        let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat")!
         let data = try Data(contentsOf: url)
 
         // We don't need to sort the rules from "public_suffix_list" since
@@ -59,17 +59,5 @@ public struct DomainParser: DomainParserProtocol {
                    parsedRules.wildcardRules[lastLabel]?.first(where: isMatching)
 
         return rule?.parse(hostLabels: hostComponents)
-    }
-}
-
-private extension Bundle {
-
-    static var current: Bundle {
-        #if SWIFT_PACKAGE
-        return Bundle.module
-        #else
-        class ClassInCurrentBundle {}
-        return Bundle.init(for: ClassInCurrentBundle.self)
-        #endif
     }
 }

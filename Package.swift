@@ -5,28 +5,20 @@ import PackageDescription
 let package = Package(
     name: "DomainParser",
     platforms: [
-        .iOS(.v12),
-        .macOS(.v10_13)
+        .iOS(.v18),
+        .macOS(.v15),
     ],
     products: [
-        .library(
+        .library(name: "DomainParser", targets: ["DomainParser"]),
+    ],
+    targets: [
+        .target(
             name: "DomainParser",
-            targets: ["DomainParser"]),
-        ],
-        dependencies: [],
-        targets: [
-            .target(
-                name: "DomainParser",
-                dependencies: [],
-                path: "DomainParser/DomainParser",
-                exclude: ["Info.plist"],
-                resources: [.process("Resources")]
-            ),
-            .testTarget(
-                name: "DomainParserTests",
-                dependencies: ["DomainParser"],
-                path: "DomainParser/DomainParserTests",
-                exclude: ["Info.plist"]
-            )
-        ]
-    )
+            resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "DomainParserTests",
+            dependencies: ["DomainParser"]
+        ),
+    ]
+)
