@@ -26,7 +26,7 @@ struct Rule {
     init(raw: Substring) {
 
         /// If the line starts with "!" it's an exceptional Rule
-        exception = raw.starts(with: C.exceptionMarker)
+        exception = raw.starts(with: Constant.exceptionMarker)
         source = exception ? String(raw.dropFirst()) : String(raw)
         parts = source.split(separator: ".").map(RuleLabel.init)
 
@@ -53,20 +53,10 @@ extension Rule {
         /// Drop the excedent so we have two arrays of the same size
         let trimmedHostLabels = hostLabels.dropFirst(delta)
 
-        let zipped = zip(self.parts, trimmedHostLabels)
-        /// Closure that check if a RuleLabel match a given string
-        let matchingClosure:(RuleLabel, Substring) -> Bool = {ruleComponent, hostComponent in
-            return ruleComponent.isMatching(label: hostComponent)
-        }
-        
-        #if swift(>=4.2)
-        return zipped.allSatisfy(matchingClosure)
-        #else
-        let notMatchingClosure:(RuleLabel, String) -> Bool = { ruleComponent, hostComponent in
-            return !matchingClosure(ruleComponent, hostComponent)
-        }
-        return !zipped.contains(where: notMatchingClosure)
-        #endif
+        return zip(self.parts, trimmedHostLabels)
+            .allSatisfy { ruleComponent, hostComponent in
+                ruleComponent.isMatching(label: hostComponent)
+            }
     }
         
 
