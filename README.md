@@ -1,69 +1,137 @@
-# Domain Parser
-![Platforms](https://img.shields.io/badge/Platforms-iOS_macOS-blue.svg?style=flat)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](https://github.com/Dashlane/SwiftDomainParser/blob/master/LICENSE)
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Swift Package Manager compatible](https://img.shields.io/badge/Swift_Package_Manager-compatible-4BC51D.svg?style=flat)](https://www.swift.org/package-manager/)
+# DomainParser
 
+![Platforms](https://img.shields.io/badge/Platforms-iOS%2018%20%7C%20macOS%2015-blue.svg?style=flat)
+![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg?style=flat)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE)
 
-A full-Swift simple library which allows the parsing of hostnames, using the [Public Suffix List](https://publicsuffix.org).
+A small Swift library for parsing hostnames against the
+[Public Suffix List](https://publicsuffix.org). Given a host like
+`api.example.co.uk`, it tells you that the **public suffix** is `co.uk` and the
+**registrable domain** is `example.co.uk`.
 
-This Library allows finding the ***domain name*** and the ***public suffix*** / ***top-level-domain*** for a given URL. 
+> **Note** — this is a personal fork of
+> [Dashlane/SwiftDomainParser](https://github.com/Dashlane/SwiftDomainParser),
+> maintained for [Passie](https://github.com/shadone/passie). It modernizes the
+> package for Swift 6 + iOS 18 / macOS 15, fixes a latent case-sensitivity bug,
+> and keeps the bundled PSL current. See [`CHANGELOG.md`](CHANGELOG.md) for
+> what's changed vs upstream.
 
+## Why a PSL parser?
 
-## What is the Public Suffix List ?
+The PSL lists all known public suffixes (e.g. `com`, `co.uk`, `nt.edu.au`).
+Without it you can't tell which part of `api.example.co.uk` is the registrable
+domain — `example.co.uk` is owned by one party, but the string `co.uk` alone
+isn't. The list also handles wildcards (`*.ck`) and exceptions (`!www.ck`);
+see the [format spec](https://github.com/publicsuffix/list/wiki/Format).
 
-The PSL lists all the known public suffixes (like: `com`, `co.uk`, `nt.edu.au`, ...). 
-Without this information we are not able to determine which part of a URL is the domain, since a suffix can have more than one Label. A suffix rule may also contain wildcards or exceptions to wildcards. If you want to understand the full format of PSL matching rules, you can read their specification [here](https://github.com/publicsuffix/list/wiki/Format#format).
+| Host                       | Domain           | Public suffix | Rule       |
+|----------------------------|------------------|---------------|------------|
+| `auth.example.com`         | `example.com`    | `com`         | `com`      |
+| `sub.example.co.uk`        | `example.co.uk`  | `co.uk`       | `co.uk`    |
+| `sub.example.gov.ck`       | `example.gov.ck` | `gov.ck`      | `*.ck`     |
+| `sub.example.any.ck`       | `example.any.ck` | `any.ck`      | `*.ck`     |
+| `www.ck`                   | `www.ck`         | `ck`          | `!www.ck`  |
+| `sub.www.ck`               | `www.ck`         | `ck`          | `!www.ck`  |
 
-The PSL is continuously updated.
+## Installation
 
-The list includes ICANN suffixes (official top level domains) but also private suffixes (like `us-east-1.amazonaws.com`).
+Swift Package Manager:
 
-Examples: 
-
-| URL host                   | Domain          | Public suffix | Matched PSL rule | Explanation    |
-|---------------------------:|:---------------:|:-------------:|:----------------:|:---------------|
-| `auth.impala.dashlane.com` | `dashlane.com`  | `com`         | `com`            | Simple rule    |
-| `sub.domain.co.uk`         | `domain.co.uk`  | `co.uk`       | `co.uk`          | Simple rule    |
-| `sub.domain.gov.ck`        | `domain.gov.ck` | `gov.ck`      | `*.ck`           | Wildcard rule  |
-| `sub.domain.any.ck`        | `domain.any.ck` | `any.ck`      | `*.ck`           | Wildcard rule  |
-| `sub.sub.domain.any.ck`    | `domain.any.ck` | `any.ck`      | `*.ck`           | Wildcard rule  |
-| `www.ck`                   | `www.ck`        | `ck`          | `!www.ck`        | Exception rule |
-| `sub.www.ck`               | `www.ck`        | `ck`          | `!www.ck`        | Exception rule |
-| `sub.sub.www.ck`           | `www.ck`        | `ck`          | `!www.ck`        | Exception rule |
-
-
-## Usage 
-
-#### Initialization: 
+```swift
+.package(url: "https://github.com/shadone/SwiftDomainParser.git", branch: "master"),
 ```
+
+then add `"DomainParser"` to your target's dependencies.
+
+## Usage
+
+```swift
 import DomainParser
-...
-let domainParser = try DomainParser()
+
+let parser = try DomainParser()
 ```
 
-You should use the same instance when you parse multiple URL hosts.
+Construction reads and parses the bundled PSL (~10K rules). Hold onto one
+instance and reuse it — `DomainParser` is `Sendable`, safe to share across
+isolation domains.
 
-``` 
-let domain: String? = domainParser.parse(host: "awesome.dashlane.com")?.domain
-print(domain ?? "N/A") // dashlane.com
+### From a host string
+
+```swift
+let result = parser.parse(host: "awesome.example.co.uk")
+result?.domain        // "example.co.uk"
+result?.publicSuffix  // "co.uk"
 ```
 
-``` 
-let suffix1: String? = domainParser.parse(host: "awesome.dashlane.com")?.publicSuffix
-print(suffix1 ?? "N/A") // com
+Host comparison is case-insensitive; `EXAMPLE.com`, `example.COM`, and
+`example.com` all parse the same.
 
-let suffix2: String? = domainParser.parse(host: "awesome.dashlane.co.uk")?.publicSuffix
-print(suffix2 ?? "N/A") // co.uk
+### From a URL
+
+```swift
+let result = parser.parse(url: URL(string: "https://www.example.com/path")!)
+result?.domain        // "example.com"
+result?.publicSuffix  // "com"
 ```
 
-## Update the local Public Suffix List 
+Returns `nil` if the URL has no host component (e.g. `file:///etc/hosts`).
 
-The local PSL used by the library is located at `DomainParser/DomainParser/Resources/public_suffix_list.dat`.
+### Basic-only parsing
 
-To update it, run this Terminal command in the `script` folder: 
-``` 
-swift UpdatePSL.swift 
+If you don't need wildcard or exception rules, use `BasicDomainParser`
+directly — the lookup is one `Set<String>.contains` per host label, with no
+wildcard/exception logic on the hot path:
+
+```swift
+let basic = try BasicDomainParser()
+basic.parse(host: "example.com")?.domain  // "example.com"
 ```
 
+`BasicDomainParser` requires lowercase input. `DomainParser` lowercases for
+you internally; if you reach for `BasicDomainParser` directly, pass
+`host.lowercased()`.
 
+### Error handling
+
+Both `DomainParser()` and `BasicDomainParser()` throw `DomainParserError`:
+
+```swift
+do {
+    let parser = try DomainParser()
+} catch DomainParserError.missingPublicSuffixListResource {
+    // bundled PSL file missing - should never happen in shipping builds
+} catch DomainParserError.ruleParsingError(let message) {
+    // bundled PSL file is malformed UTF-8 or has an unsupported rule shape
+}
+```
+
+### Testing
+
+`FakeDomainParser` (DEBUG builds only) is a no-op `DomainParserProtocol`
+implementation. Useful for SwiftUI previews and tests that need to inject a
+parser but don't care about the result.
+
+## Refreshing the bundled Public Suffix List
+
+The PSL changes regularly. The bundled copy lives at
+`Sources/DomainParser/Resources/public_suffix_list.dat`. To refresh:
+
+```bash
+swift script/UpdatePSL.swift
+```
+
+The script fetches the current list from `publicsuffix.org`, strips comments
+and whitespace, sorts rules by descending label count (so highest-priority
+matches come first), and overwrites the bundled file. Run from anywhere —
+the target path is resolved relative to the script, not the current
+directory.
+
+## Known limitations
+
+- **No Punycode / IDNA.** Hosts must be in lowercase Unicode form or
+  pre-encoded ACE (`xn--...`). Most callers reading hostnames from system URL
+  components already get ACE form, so this is rarely an issue in practice.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Upstream is Copyright © 2018 Dashlane.
