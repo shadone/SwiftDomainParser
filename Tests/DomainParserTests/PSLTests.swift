@@ -172,6 +172,37 @@ struct DomainParserSuite {
         #expect(custom.parse(host: "metro.tokyo.jp")?.domain == "metro.tokyo.jp")
     }
 
+    // MARK: - RulesParser accepts raw upstream PSL
+
+    /// `RulesParser` must tolerate raw upstream PSL input: blank lines,
+    /// "//"-prefixed comments, and inline trailing whitespace per the spec
+    /// (https://publicsuffix.org/list/ - "each line is only read up to the
+    /// first whitespace"). The bundled .dat is pre-normalized so the default
+    /// path never sees these, but `init(_rulesData:)` and any future direct
+    /// caller may pass raw input.
+    @Test func rulesParserToleratesRawUpstreamFormat() throws {
+        let rawPSL = """
+        // ===BEGIN ICANN DOMAINS===
+
+        // example comment line
+        com
+        co.uk \t<- inline trailing junk per spec
+        *.ck
+        !www.ck
+
+        // ===END ICANN DOMAINS===
+        """
+        let parser = try DomainParser(_rulesData: Data(rawPSL.utf8))
+
+        // Comment lines should NOT become basic rules.
+        #expect(parser._parsedRules.basicRules == ["com", "co.uk"])
+
+        // Wildcard and exception still classified correctly.
+        #expect(parser.parse(host: "example.com")?.domain == "example.com")
+        #expect(parser.parse(host: "a.b.test.ck")?.domain == "b.test.ck")
+        #expect(parser.parse(host: "www.ck")?.domain == "www.ck")
+    }
+
     // MARK: - BasicDomainParser standalone
 
     /// BasicDomainParser is publicly constructible and produces the same

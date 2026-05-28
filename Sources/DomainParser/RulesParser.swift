@@ -40,10 +40,18 @@ enum RulesParser {
                            basicRules: basicRules)
     }
 
-    private static func parse(line: Substring,
+    private static func parse(line rawLine: Substring,
                               into exceptions: inout [String: [Rule]],
                               wildcardRules: inout [String: [Rule]],
                               basicRules: inout Set<String>) throws {
+        // From publicsuffix.org/list/: each line is only read up to the
+        // first whitespace; entire lines can also be commented using "//".
+        // The bundled .dat file is pre-normalized by script/UpdatePSL.swift,
+        // but accept raw upstream input here too so init(_rulesData:) and
+        // any future direct caller can pass it unmodified.
+        let line = rawLine.prefix { !$0.isWhitespace }
+        guard !line.isEmpty, !line.hasPrefix("//") else { return }
+
         if line.contains("*") {
             let rule = Rule(raw: line)
             guard case .text(let lastLabelText) = rule.parts.last else {
