@@ -9,17 +9,18 @@ on:
 jobs:
   refresh:
     name: Refresh public_suffix_list.dat
-    runs-on: macos-latest
+    # Linux: 10x cheaper than macOS, and this workflow is platform-agnostic
+    # (Foundation URLSession + Swift Testing + XCTest measure).
+    runs-on: ubuntu-latest
+    container: swift:6.0-jammy
     permissions:
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      - name: Show Swift version
+        run: swift --version
 
       - name: Refresh PSL from publicsuffix.org
         run: swift script/UpdatePSL.swift
