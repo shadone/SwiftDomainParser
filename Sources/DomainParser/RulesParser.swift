@@ -9,7 +9,7 @@
 import Foundation
 
 
-struct ParsedRules {
+struct ParsedRules: Sendable {
     /// Dictionary of rule arrays indexed by the last label of a rule.
     let exceptions: [String: [Rule]]
     /// Dictionary of rule arrays indexed by the last label of a rule.

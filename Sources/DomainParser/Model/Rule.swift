@@ -9,7 +9,7 @@
 import Foundation
 
 /// Represents a Public Suffix Rule
-struct Rule {
+struct Rule: Sendable {
 
     /// Is this rule an exception
     let exception: Bool
