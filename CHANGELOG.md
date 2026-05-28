@@ -42,6 +42,11 @@ source-compatible with Dashlane upstream's 1.x API.**
   `DomainParserProtocol`.
 - `FakeDomainParser` (DEBUG builds only) for SwiftUI previews and tests.
 - `ParsedHost` conforms to `Hashable` (was: only `Equatable`).
+- **Punycode / IDN support.** Hosts may now be passed in either Unicode
+  form (`公司.cn`) or ACE form (`xn--55qx5d.cn`); each `xn--` label is
+  RFC 3492-decoded internally before matching against the bundled PSL's
+  Unicode-form rules. Output preserves the caller's form. Full UTS-46
+  IDNA processing (NFC, Bidi checks) is not implemented.
 
 ### Fixed
 
@@ -126,10 +131,11 @@ source-compatible with Dashlane upstream's 1.x API.**
 
 ## Known limitations
 
-- **No Punycode / IDNA**: hosts must be in lowercase Unicode form or
-  pre-encoded ACE (`xn--...`). PSL's official Punycode test vectors are
-  intentionally not covered. Most callers reading hostnames from system URL
-  components already get ACE form, so this is rarely an issue in practice.
+- **No full UTS-46 IDNA**: Punycode decode/encode-aware PSL lookup is
+  implemented (added in 2.0), but full IDNA processing - NFC
+  normalization, Bidi rule, joiner-context checks - is not. Mostly
+  irrelevant in practice because hostnames coming from URL parsing
+  are already validated.
 
 ## Upstream parity
 

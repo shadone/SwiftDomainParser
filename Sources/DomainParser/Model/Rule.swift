@@ -36,35 +36,37 @@ extension Rule {
     /// - Beginning with the right-most labels of both the domain and the rule,
     ///     and continuing for all labels in the rule, one finds that for every pair,
     ///     either they are identical, or that the label from the rule is "*".
-    func isMatching(hostLabels: [Substring]) -> Bool {
-        let delta = hostLabels.count - self.parts.count
-
-        /// The url should have at least the same number of labels than the url
+    ///
+    /// Matching is done against the *normalized* (Punycode-decoded) labels so
+    /// it works against the bundled PSL's Unicode-form rules regardless of
+    /// whether the caller passed an ACE or Unicode host.
+    func isMatching(hostLabels: HostLabels) -> Bool {
+        let labels = hostLabels.normalized
+        let delta = labels.count - self.parts.count
         guard delta >= 0 else { return false }
-
-        /// Drop the excedent so we have two arrays of the same size
-        let trimmedHostLabels = hostLabels.dropFirst(delta)
-
-        return zip(self.parts, trimmedHostLabels)
+        let trimmed = labels.dropFirst(delta)
+        return zip(self.parts, trimmed)
             .allSatisfy { ruleComponent, hostComponent in
                 ruleComponent.isMatching(label: hostComponent)
             }
     }
-        
 
-    /// ⚠️ Should be called only for host matching the rule
-    func parse(hostLabels: [Substring]) -> ParsedHost {
+    /// ⚠️ Should be called only for host matching the rule.
+    ///
+    /// Output is constructed from the *original* labels so the caller gets
+    /// the suffix and registrable domain back in the same ACE/Unicode form
+    /// they passed in.
+    func parse(hostLabels: HostLabels) -> ParsedHost {
+        let labels = hostLabels.original
         let partsCount = parts.count - (self.exception ? 1 : 0)
-        let delta = hostLabels.count - partsCount
+        let delta = labels.count - partsCount
 
         let registrableDomain = delta == 0
             ? nil
-            : hostLabels.dropFirst(delta - 1).joined(separator: ".")
-
-        let publicSuffix = hostLabels.dropFirst(delta).joined(separator: ".")
+            : labels.dropFirst(delta - 1).joined(separator: ".")
+        let publicSuffix = labels.dropFirst(delta).joined(separator: ".")
         return ParsedHost(publicSuffix: publicSuffix,
                           registrableDomain: registrableDomain)
     }
-
 }
 

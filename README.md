@@ -129,11 +129,22 @@ matches come first), and overwrites the bundled file. Run from anywhere —
 the target path is resolved relative to the script, not the current
 directory.
 
-## Known limitations
+## Internationalized domain names
 
-- **No Punycode / IDNA.** Hosts must be in lowercase Unicode form or
-  pre-encoded ACE (`xn--...`). Most callers reading hostnames from system URL
-  components already get ACE form, so this is rarely an issue in practice.
+Hosts may be passed in either Unicode form (e.g. `公司.cn`) or
+ACE/Punycode form (e.g. `xn--55qx5d.cn`); the parser handles both and
+preserves the caller's form in the output. Internally each `xn--`-prefixed
+label is RFC 3492-decoded and compared against the bundled PSL's
+Unicode-form rules.
+
+```swift
+parser.parse(host: "shishi.公司.cn")?.registrableDomain        // "shishi.公司.cn"
+parser.parse(host: "shishi.xn--55qx5d.cn")?.registrableDomain  // "shishi.xn--55qx5d.cn"
+```
+
+Full UTS-46 IDNA normalization (NFC, Bidi checks, etc.) is **not**
+implemented; this is a Punycode encode/decode-aware PSL lookup, not a
+general IDNA processor.
 
 ## License
 

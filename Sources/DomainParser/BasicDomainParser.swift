@@ -2,10 +2,6 @@ import Foundation
 
 /// Parses a hostname using only the basic (non-wildcard, non-exception) suffix rules.
 /// Examples of valid rules: **com**, **co.uk**, **ide.kyoto.jp**.
-///
-/// - Precondition: `host` is already lowercased. Callers reaching this through
-///   `DomainParser.parse(host:)` get this for free; direct callers should pass
-///   `host.lowercased()` themselves.
 public struct BasicDomainParser: DomainParserProtocol {
 
     let suffixes: Set<String>
@@ -23,25 +19,26 @@ public struct BasicDomainParser: DomainParserProtocol {
     }
 
     public func parse(host: String) -> ParsedHost? {
-        let hostComponents = host.split(separator: ".")
-        var hostSlices = ArraySlice(hostComponents)
+        return parse(labels: HostLabels(host: host))
+    }
 
-        var candidateSuffix = ""
+    func parse(labels: HostLabels) -> ParsedHost? {
+        guard !labels.isEmpty else { return nil }
 
-        // Check if the host ends with a suffix in the set.
-        // For api.dashlane.co.uk: first check whether dashlane.co.uk is a
-        // known suffix, then co.uk, then uk, ...
-        repeat {
-            guard !hostSlices.isEmpty else { return nil }
-            candidateSuffix = hostSlices.joined(separator: ".")
-            hostSlices = hostSlices.dropFirst()
-        } while !suffixes.contains(candidateSuffix)
+        // Match against the normalized (Punycode-decoded) labels, but build
+        // the output by slicing the original labels at the same indices so
+        // ACE callers get ACE back and Unicode callers get Unicode back.
+        for suffixStart in 0..<labels.normalized.count {
+            let candidate = labels.normalized[suffixStart...].joined(separator: ".")
+            guard suffixes.contains(candidate) else { continue }
 
-        // The registrable domain is the suffix plus one more left-side label.
-        let domainRange = (hostSlices.startIndex - 2)..<hostComponents.endIndex
-        let registrableDomain = domainRange.startIndex >= 0
-            ? hostComponents[domainRange].joined(separator: ".")
-            : nil
-        return ParsedHost(publicSuffix: candidateSuffix, registrableDomain: registrableDomain)
+            let publicSuffix = labels.original[suffixStart...].joined(separator: ".")
+            let registrableDomain = suffixStart > 0
+                ? labels.original[(suffixStart - 1)...].joined(separator: ".")
+                : nil
+            return ParsedHost(publicSuffix: publicSuffix,
+                              registrableDomain: registrableDomain)
+        }
+        return nil
     }
 }

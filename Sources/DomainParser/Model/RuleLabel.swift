@@ -11,7 +11,7 @@ enum RuleLabel: Sendable {
     }
 
     /// Return true if self matches the given label
-    func isMatching(label: Substring) -> Bool {
+    func isMatching(label: some StringProtocol) -> Bool {
         switch self {
         case let .text(text):
             return text == label

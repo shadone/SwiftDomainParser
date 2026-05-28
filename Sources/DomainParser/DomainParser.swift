@@ -62,24 +62,19 @@ public struct DomainParser: DomainParserProtocol {
     }
 
     public func parse(host: String) -> ParsedHost? {
-        // PSL rules are all lowercase; URL host comparison is case-insensitive.
-        // Lowercase once here so both branches see canonical labels.
-        let host = host.lowercased()
-        return parseExceptionAndWildcardRules(host: host)
-            ?? basicDomainParser.parse(host: host)
+        let labels = HostLabels(host: host)
+        return parseExceptionAndWildcardRules(labels: labels)
+            ?? basicDomainParser.parse(labels: labels)
     }
 
-    func parseExceptionAndWildcardRules(host: String) -> ParsedHost? {
-        let hostComponents = host.split(separator: ".")
-        guard let lastLabelSubstring = hostComponents.last else {
-            return nil
-        }
+    func parseExceptionAndWildcardRules(labels: HostLabels) -> ParsedHost? {
+        // Look up by the rightmost normalized label so the index works against
+        // the bundled PSL's Unicode-form rules even when the caller passed ACE.
+        guard let lastLabel = labels.normalized.last else { return nil }
 
-        let lastLabel = String(lastLabelSubstring)
-        let isMatching: (Rule) -> Bool = { $0.isMatching(hostLabels: hostComponents) }
+        let isMatching: (Rule) -> Bool = { $0.isMatching(hostLabels: labels) }
         let rule = _parsedRules.exceptions[lastLabel]?.first(where: isMatching) ??
                    _parsedRules.wildcardRules[lastLabel]?.first(where: isMatching)
-
-        return rule?.parse(hostLabels: hostComponents)
+        return rule?.parse(hostLabels: labels)
     }
 }

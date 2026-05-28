@@ -87,7 +87,7 @@ struct DomainParserSuite {
             ("k12.ak.us", nil),
             ("test.k12.ak.us", "test.k12.ak.us"),
             ("www.test.k12.ak.us", "test.k12.ak.us"),
-            // IDN labels (non-punycode)
+            // IDN labels - Unicode form (input form preserved in output).
             ("食狮.com.cn", "食狮.com.cn"),
             ("食狮.公司.cn", "食狮.公司.cn"),
             ("www.食狮.公司.cn", "食狮.公司.cn"),
@@ -97,6 +97,16 @@ struct DomainParserSuite {
             ("www.食狮.中国", "食狮.中国"),
             ("shishi.中国", "shishi.中国"),
             ("中国", nil),
+            // IDN labels - ACE/Punycode form (input form preserved in output).
+            ("xn--85x722f.com.cn", "xn--85x722f.com.cn"),
+            ("xn--85x722f.xn--55qx5d.cn", "xn--85x722f.xn--55qx5d.cn"),
+            ("www.xn--85x722f.xn--55qx5d.cn", "xn--85x722f.xn--55qx5d.cn"),
+            ("shishi.xn--55qx5d.cn", "shishi.xn--55qx5d.cn"),
+            ("xn--55qx5d.cn", nil),
+            ("xn--85x722f.xn--fiqs8s", "xn--85x722f.xn--fiqs8s"),
+            ("www.xn--85x722f.xn--fiqs8s", "xn--85x722f.xn--fiqs8s"),
+            ("shishi.xn--fiqs8s", "shishi.xn--fiqs8s"),
+            ("xn--fiqs8s", nil),
           ] as [(String, String?)])
     func psl(host: String, expectedDomain: String?) {
         // checkPublicSuffix in upstream's test file lowercases the host before
@@ -113,6 +123,27 @@ struct DomainParserSuite {
         // Wildcard
         #expect(parser.parse(host: "any.ck") == ParsedHost(publicSuffix: "any.ck", registrableDomain:nil))
         #expect(parser.parse(host: "any.mm") == ParsedHost(publicSuffix: "any.mm", registrableDomain:nil))
+    }
+
+    // MARK: - IDN: ACE-encoded labels are matched against Unicode PSL rules
+
+    /// The bundled PSL stores IDN entries in Unicode form. Hosts may arrive
+    /// in either Unicode (e.g. `公司.cn`) or ACE (e.g. `xn--55qx5d.cn`) form
+    /// depending on where they came from. Verify both forms find the same
+    /// rule, and that the output preserves the caller's form.
+    @Test func idnACEAndUnicodeBothMatch() {
+        // ACE input → ACE output.
+        #expect(parser.parse(host: "shishi.xn--55qx5d.cn") ==
+                ParsedHost(publicSuffix: "xn--55qx5d.cn",
+                           registrableDomain: "shishi.xn--55qx5d.cn"))
+        // Unicode input → Unicode output (same rule matched).
+        #expect(parser.parse(host: "shishi.公司.cn") ==
+                ParsedHost(publicSuffix: "公司.cn",
+                           registrableDomain: "shishi.公司.cn"))
+        // Mixed: ACE registrable label, Unicode suffix.
+        #expect(parser.parse(host: "xn--85x722f.公司.cn") ==
+                ParsedHost(publicSuffix: "公司.cn",
+                           registrableDomain: "xn--85x722f.公司.cn"))
     }
 
     // MARK: - Mixed-case host on the exception/wildcard branch
