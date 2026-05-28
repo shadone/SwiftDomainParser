@@ -8,8 +8,9 @@
 
 import Foundation
 
-enum DomainParserError: Error {
+public enum DomainParserError: Error {
     case ruleParsingError(message: String)
+    case missingPublicSuffixListResource
 }
 
 /// Uses the public suffix list
@@ -25,7 +26,9 @@ public struct DomainParser: DomainParserProtocol {
     /// Parameters:
     ///   - QuickParsing: IF true, the `exception` and `wildcard` rules will be ignored
     public init(quickParsing: Bool = false) throws {
-        let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat")!
+        guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
+            throw DomainParserError.missingPublicSuffixListResource
+        }
         let data = try Data(contentsOf: url)
 
         // We don't need to sort the rules from "public_suffix_list" since
