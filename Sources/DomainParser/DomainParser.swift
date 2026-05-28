@@ -1,7 +1,20 @@
 import Foundation
 
+/// Errors thrown by `DomainParser` and `BasicDomainParser` during
+/// initialization.
 public enum DomainParserError: Error {
+    /// The Public Suffix List bytes could not be interpreted as valid
+    /// UTF-8, or contained a rule with a shape this parser does not
+    /// support (e.g. a wildcard or exception rule whose final label is
+    /// itself a wildcard).
+    ///
+    /// `message` is a human-readable description; not localized.
     case ruleParsingError(message: String)
+
+    /// The bundled `public_suffix_list.dat` resource could not be located
+    /// in `Bundle.module`. In a shipping build this indicates a packaging
+    /// bug - the resource is declared in `Package.swift` and should always
+    /// be present.
     case missingPublicSuffixListResource
 }
 

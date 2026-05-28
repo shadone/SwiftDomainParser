@@ -1,6 +1,19 @@
 import Foundation
 
+/// The common interface implemented by every parser in this module
+/// (`DomainParser`, `BasicDomainParser`, `FakeDomainParser`).
+///
+/// Conformers are `Sendable` so a single instance can be shared across
+/// isolation domains - hold onto one instance and reuse it.
+///
+/// Construction is the expensive step (it loads and parses the bundled
+/// Public Suffix List, ~10K rules); per-call lookup is cheap.
 public protocol DomainParserProtocol: Sendable {
+    /// Returns the registrable domain and public suffix for `host`, or
+    /// `nil` if no matching PSL rule applies.
+    ///
+    /// Host comparison is case-insensitive when called through
+    /// `DomainParser`; `BasicDomainParser` requires lowercase input.
     func parse(host: String) -> ParsedHost?
 }
 
