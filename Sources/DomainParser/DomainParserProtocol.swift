@@ -8,7 +8,7 @@ extension DomainParserProtocol {
     /// Convenience overload for callers that already have a `URL`.
     /// Returns `nil` if the URL has no host component.
     public func parse(url: URL) -> ParsedHost? {
-        guard let host = url.host else { return nil }
+        guard let host = url.host() else { return nil }
         return parse(host: host)
     }
 }
