@@ -17,7 +17,7 @@ public struct BasicDomainParser: DomainParserProtocol {
     /// Loads the bundled Public Suffix List and keeps only the basic-rule
     /// suffix set. Use this when you don't need wildcard/exception matching:
     /// the lookup runs as one `Set<String>.contains` per host label.
-    public init() throws {
+    public init() throws(DomainParserError) {
         let parsed = try RulesParser.parse(raw: _loadBundledPSLData(), sortRules: false)
         self.init(suffixes: parsed.basicRules)
     }

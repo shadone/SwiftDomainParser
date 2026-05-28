@@ -12,7 +12,7 @@ struct ParsedRules: Sendable {
 enum RulesParser {
 
     /// Parse the Data to extract the rule collections, optionally sorted by importance.
-    static func parse(raw: Data, sortRules: Bool) throws -> ParsedRules {
+    static func parse(raw: Data, sortRules: Bool) throws(DomainParserError) -> ParsedRules {
         guard let rulesText = String(data: raw, encoding: .utf8) else {
             throw DomainParserError.ruleParsingError(message: "Can't parse rules data. Is it in UTF-8 format?")
         }
@@ -43,7 +43,7 @@ enum RulesParser {
     private static func parse(line rawLine: Substring,
                               into exceptions: inout [String: [Rule]],
                               wildcardRules: inout [String: [Rule]],
-                              basicRules: inout Set<String>) throws {
+                              basicRules: inout Set<String>) throws(DomainParserError) {
         // From publicsuffix.org/list/: each line is only read up to the
         // first whitespace; entire lines can also be commented using "//".
         // The bundled .dat file is pre-normalized by script/UpdatePSL.swift,

@@ -16,15 +16,25 @@ public enum DomainParserError: Error {
     /// bug - the resource is declared in `Package.swift` and should always
     /// be present.
     case missingPublicSuffixListResource
+
+    /// Reading the bundled `public_suffix_list.dat` resource off disk
+    /// failed - typically an underlying Foundation `CocoaError` from
+    /// `Data(contentsOf:)`. Wrapped so the typed-throws boundary stays
+    /// closed.
+    case bundleLoadFailed(underlying: any Error)
 }
 
 /// Loads the bundled `public_suffix_list.dat` resource as raw bytes.
 /// Shared by `DomainParser.init` and `BasicDomainParser.init`.
-internal func _loadBundledPSLData() throws -> Data {
+internal func _loadBundledPSLData() throws(DomainParserError) -> Data {
     guard let url = Bundle.module.url(forResource: "public_suffix_list", withExtension: "dat") else {
         throw DomainParserError.missingPublicSuffixListResource
     }
-    return try Data(contentsOf: url)
+    do {
+        return try Data(contentsOf: url)
+    } catch {
+        throw DomainParserError.bundleLoadFailed(underlying: error)
+    }
 }
 
 /// Parses hostnames using the bundled Public Suffix List.
@@ -39,7 +49,7 @@ public struct DomainParser: DomainParserProtocol {
     let basicDomainParser: BasicDomainParser
 
     /// Loads the bundled Public Suffix List and builds the rule set.
-    public init() throws {
+    public init() throws(DomainParserError) {
         // We don't need to sort the rules from "public_suffix_list" since
         // the file has already been sorted by the update script.
         try self.init(_rulesData: _loadBundledPSLData(), quickParsing: false, sortRules: false)
@@ -55,13 +65,15 @@ public struct DomainParser: DomainParserProtocol {
     /// parsing up front, and the API surface is clearer about what's
     /// happening at the call site.
     @available(*, deprecated, message: "Use BasicDomainParser() for the basic-only path; use DomainParser() for full PSL parsing.")
-    public init(quickParsing: Bool) throws {
+    public init(quickParsing: Bool) throws(DomainParserError) {
         try self.init(_rulesData: _loadBundledPSLData(), quickParsing: quickParsing, sortRules: false)
     }
 
     /// Test-only seam. Underscore-prefixed to signal "do not depend on me
     /// outside tests."
-    init(_rulesData rulesData: Data, quickParsing: Bool = false, sortRules: Bool = true) throws {
+    init(_rulesData rulesData: Data,
+         quickParsing: Bool = false,
+         sortRules: Bool = true) throws(DomainParserError) {
         _parsedRules = try RulesParser.parse(raw: rulesData, sortRules: sortRules)
         basicDomainParser = BasicDomainParser(suffixes: _parsedRules.basicRules)
         onlyBasicRules = quickParsing
