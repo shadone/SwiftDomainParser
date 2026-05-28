@@ -39,7 +39,9 @@ public struct BasicDomainParser: DomainParserProtocol {
 
         // The registrable domain is the suffix plus one more left-side label.
         let domainRange = (hostSlices.startIndex - 2)..<hostComponents.endIndex
-        let domain = domainRange.startIndex >= 0 ? hostComponents[domainRange].joined(separator: ".") : nil
-        return ParsedHost(publicSuffix: candidateSuffix, domain: domain)
+        let registrableDomain = domainRange.startIndex >= 0
+            ? hostComponents[domainRange].joined(separator: ".")
+            : nil
+        return ParsedHost(publicSuffix: candidateSuffix, registrableDomain: registrableDomain)
     }
 }

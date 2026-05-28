@@ -35,16 +35,16 @@ class DomainParserPerformanceTests: XCTestCase {
         let customDomainParser = try! DomainParser(_rulesData: rulesData)
 
         // Sanity: a normally-valid host is not valid under this custom rule set.
-        XCTAssertNil(customDomainParser.parse(host: "google.fr")?.domain)
+        XCTAssertNil(customDomainParser.parse(host: "google.fr")?.registrableDomain)
 
         measure {
             for _ in 0...10 {
-                XCTAssertEqual(customDomainParser.parse(host: "domain.any.ky")?.domain, "domain.any.ky")
-                XCTAssertEqual(customDomainParser.parse(host: "except.ky")?.domain, "except.ky")
-                XCTAssertEqual(customDomainParser.parse(host: "domain.any.tz")?.domain, "domain.any.tz")
-                XCTAssertEqual(customDomainParser.parse(host: "except.tz")?.domain, "except.tz")
-                XCTAssertEqual(customDomainParser.parse(host: "domain.any.nf")?.domain, "domain.any.nf")
-                XCTAssertEqual(customDomainParser.parse(host: "except.nf")?.domain, "except.nf")
+                XCTAssertEqual(customDomainParser.parse(host: "domain.any.ky")?.registrableDomain, "domain.any.ky")
+                XCTAssertEqual(customDomainParser.parse(host: "except.ky")?.registrableDomain, "except.ky")
+                XCTAssertEqual(customDomainParser.parse(host: "domain.any.tz")?.registrableDomain, "domain.any.tz")
+                XCTAssertEqual(customDomainParser.parse(host: "except.tz")?.registrableDomain, "except.tz")
+                XCTAssertEqual(customDomainParser.parse(host: "domain.any.nf")?.registrableDomain, "domain.any.nf")
+                XCTAssertEqual(customDomainParser.parse(host: "except.nf")?.registrableDomain, "except.nf")
             }
         }
     }

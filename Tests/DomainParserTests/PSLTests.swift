@@ -101,18 +101,18 @@ struct DomainParserSuite {
     func psl(host: String, expectedDomain: String?) {
         // checkPublicSuffix in upstream's test file lowercases the host before
         // calling the parser, so we do the same here.
-        #expect(parser.parse(host: host.lowercased())?.domain == expectedDomain)
+        #expect(parser.parse(host: host.lowercased())?.registrableDomain == expectedDomain)
     }
 
     // MARK: - TLD with no domain
 
     @Test func tldWithNoDomain() {
-        #expect(parser.parse(host: "com") == ParsedHost(publicSuffix: "com", domain: nil))
-        #expect(parser.parse(host: "co.uk") == ParsedHost(publicSuffix: "co.uk", domain: nil))
-        #expect(parser.parse(host: "ide.kyoto.jp") == ParsedHost(publicSuffix: "ide.kyoto.jp", domain: nil))
+        #expect(parser.parse(host: "com") == ParsedHost(publicSuffix: "com", registrableDomain:nil))
+        #expect(parser.parse(host: "co.uk") == ParsedHost(publicSuffix: "co.uk", registrableDomain:nil))
+        #expect(parser.parse(host: "ide.kyoto.jp") == ParsedHost(publicSuffix: "ide.kyoto.jp", registrableDomain:nil))
         // Wildcard
-        #expect(parser.parse(host: "any.ck") == ParsedHost(publicSuffix: "any.ck", domain: nil))
-        #expect(parser.parse(host: "any.mm") == ParsedHost(publicSuffix: "any.mm", domain: nil))
+        #expect(parser.parse(host: "any.ck") == ParsedHost(publicSuffix: "any.ck", registrableDomain:nil))
+        #expect(parser.parse(host: "any.mm") == ParsedHost(publicSuffix: "any.mm", registrableDomain:nil))
     }
 
     // MARK: - Mixed-case host on the exception/wildcard branch
@@ -124,21 +124,21 @@ struct DomainParserSuite {
     @Test func mixedCaseHostHittingWildcardOrExceptionRule() {
         // `*.ck` wildcard
         #expect(parser.parse(host: "B.Test.CK") ==
-                ParsedHost(publicSuffix: "test.ck", domain: "b.test.ck"))
+                ParsedHost(publicSuffix: "test.ck", registrableDomain:"b.test.ck"))
         // `!www.ck` exception
         #expect(parser.parse(host: "WWW.CK") ==
-                ParsedHost(publicSuffix: "ck", domain: "www.ck"))
+                ParsedHost(publicSuffix: "ck", registrableDomain:"www.ck"))
         #expect(parser.parse(host: "Sub.WWW.CK") ==
-                ParsedHost(publicSuffix: "ck", domain: "www.ck"))
+                ParsedHost(publicSuffix: "ck", registrableDomain:"www.ck"))
     }
 
     // MARK: - URL convenience overload
 
     @Test func parseURLConvenience() {
         #expect(parser.parse(url: URL(string: "https://www.example.com/path?q=1")!) ==
-                ParsedHost(publicSuffix: "com", domain: "example.com"))
+                ParsedHost(publicSuffix: "com", registrableDomain:"example.com"))
         #expect(parser.parse(url: URL(string: "https://api.example.co.uk")!) ==
-                ParsedHost(publicSuffix: "co.uk", domain: "example.co.uk"))
+                ParsedHost(publicSuffix: "co.uk", registrableDomain:"example.co.uk"))
         // file:// URLs have no host
         #expect(parser.parse(url: URL(string: "file:///etc/hosts")!) == nil)
     }
@@ -158,18 +158,18 @@ struct DomainParserSuite {
         let custom = try DomainParser(_rulesData: Data(rules.utf8))
 
         // Sanity: a domain that would normally resolve doesn't under this custom set.
-        #expect(custom.parse(host: "google.fr")?.domain == nil)
+        #expect(custom.parse(host: "google.fr")?.registrableDomain == nil)
 
-        #expect(custom.parse(host: "foo.com")?.domain == "foo.com")
-        #expect(custom.parse(host: "foo.bar.jp")?.domain == "foo.bar.jp")
-        #expect(custom.parse(host: "bar.jp")?.domain == nil)
-        #expect(custom.parse(host: "foo.bar.hokkaido.jp")?.domain == "foo.bar.hokkaido.jp")
-        #expect(custom.parse(host: "bar.hokkaido.jp")?.domain == nil)
-        #expect(custom.parse(host: "foo.bar.tokyo.jp")?.domain == "foo.bar.tokyo.jp")
-        #expect(custom.parse(host: "bar.tokyo.jp")?.domain == nil)
+        #expect(custom.parse(host: "foo.com")?.registrableDomain == "foo.com")
+        #expect(custom.parse(host: "foo.bar.jp")?.registrableDomain == "foo.bar.jp")
+        #expect(custom.parse(host: "bar.jp")?.registrableDomain == nil)
+        #expect(custom.parse(host: "foo.bar.hokkaido.jp")?.registrableDomain == "foo.bar.hokkaido.jp")
+        #expect(custom.parse(host: "bar.hokkaido.jp")?.registrableDomain == nil)
+        #expect(custom.parse(host: "foo.bar.tokyo.jp")?.registrableDomain == "foo.bar.tokyo.jp")
+        #expect(custom.parse(host: "bar.tokyo.jp")?.registrableDomain == nil)
         // Exceptions override the wildcard
-        #expect(custom.parse(host: "pref.hokkaido.jp")?.domain == "pref.hokkaido.jp")
-        #expect(custom.parse(host: "metro.tokyo.jp")?.domain == "metro.tokyo.jp")
+        #expect(custom.parse(host: "pref.hokkaido.jp")?.registrableDomain == "pref.hokkaido.jp")
+        #expect(custom.parse(host: "metro.tokyo.jp")?.registrableDomain == "metro.tokyo.jp")
     }
 
     // MARK: - RulesParser accepts raw upstream PSL
@@ -198,9 +198,9 @@ struct DomainParserSuite {
         #expect(parser._parsedRules.basicRules == ["com", "co.uk"])
 
         // Wildcard and exception still classified correctly.
-        #expect(parser.parse(host: "example.com")?.domain == "example.com")
-        #expect(parser.parse(host: "a.b.test.ck")?.domain == "b.test.ck")
-        #expect(parser.parse(host: "www.ck")?.domain == "www.ck")
+        #expect(parser.parse(host: "example.com")?.registrableDomain == "example.com")
+        #expect(parser.parse(host: "a.b.test.ck")?.registrableDomain == "b.test.ck")
+        #expect(parser.parse(host: "www.ck")?.registrableDomain == "www.ck")
     }
 
     // MARK: - BasicDomainParser standalone
@@ -210,9 +210,9 @@ struct DomainParserSuite {
     @Test func basicDomainParserStandalone() throws {
         let basic = try BasicDomainParser()
         #expect(basic.parse(host: "example.com") ==
-                ParsedHost(publicSuffix: "com", domain: "example.com"))
+                ParsedHost(publicSuffix: "com", registrableDomain:"example.com"))
         #expect(basic.parse(host: "api.example.co.uk") ==
-                ParsedHost(publicSuffix: "co.uk", domain: "example.co.uk"))
+                ParsedHost(publicSuffix: "co.uk", registrableDomain:"example.co.uk"))
         // Basic parser does NOT handle wildcards - "b.test.ck" is unmatched
         // (the wildcard "*.ck" is parsed but not consulted on this code path).
         #expect(basic.parse(host: "b.test.ck") == nil)
