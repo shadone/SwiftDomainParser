@@ -164,6 +164,20 @@ class DomainParserTests: XCTestCase {
     }
 
 
+    /// The host passed to `parse(host:)` may contain uppercase letters (URL host comparison is
+    /// case-insensitive). PSL rules are all lowercase, so the parser must lowercase the host
+    /// before matching - including on the exception/wildcard branch.
+    func testMixedCaseHostHittingWildcardOrExceptionRule() {
+        // `*.ck` wildcard
+        XCTAssertEqual(domainParser.parse(host: "B.Test.CK"),
+                       ParsedHost(publicSuffix: "test.ck", domain: "b.test.ck"))
+        // `!www.ck` exception
+        XCTAssertEqual(domainParser.parse(host: "WWW.CK"),
+                       ParsedHost(publicSuffix: "ck", domain: "www.ck"))
+        XCTAssertEqual(domainParser.parse(host: "Sub.WWW.CK"),
+                       ParsedHost(publicSuffix: "ck", domain: "www.ck"))
+    }
+
     func testTLDWithNoDomain() {
         XCTAssertEqual(domainParser.parse(host: "com"), ParsedHost(publicSuffix: "com", domain: nil))
         XCTAssertEqual(domainParser.parse(host: "co.uk"), ParsedHost(publicSuffix: "co.uk", domain: nil))

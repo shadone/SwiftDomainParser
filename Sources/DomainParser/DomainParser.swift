@@ -40,13 +40,16 @@ public struct DomainParser: DomainParserProtocol {
     }
 
     public func parse(host: String) -> ParsedHost? {
+        // PSL rules are all lowercase; URL host comparison is case-insensitive.
+        // Lowercase once here so both branches see canonical labels.
+        let host = host.lowercased()
         if onlyBasicRules {
             return basicDomainParser.parse(host: host)
         } else {
             return parseExceptionsAndWildCardRules(host: host) ?? basicDomainParser.parse(host: host)
         }
      }
-    
+
     func parseExceptionsAndWildCardRules(host: String) -> ParsedHost? {
         let hostComponents = host.split(separator: ".")
         guard let lastLabelSubstring = hostComponents.last else {
