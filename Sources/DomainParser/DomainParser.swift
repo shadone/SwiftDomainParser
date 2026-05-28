@@ -44,53 +44,32 @@ public struct DomainParser: DomainParserProtocol {
     /// underscore-prefixed to signal "do not depend on me outside tests."
     let _parsedRules: ParsedRules
 
-    let onlyBasicRules: Bool
-
     let basicDomainParser: BasicDomainParser
 
     /// Loads the bundled Public Suffix List and builds the rule set.
     public init() throws(DomainParserError) {
         // We don't need to sort the rules from "public_suffix_list" since
         // the file has already been sorted by the update script.
-        try self.init(_rulesData: _loadBundledPSLData(), quickParsing: false, sortRules: false)
-    }
-
-    /// Loads the bundled Public Suffix List with optional wildcard/exception skipping.
-    ///
-    /// - Parameter quickParsing: If `true`, exception and wildcard rules are
-    ///   ignored at parse time.
-    ///
-    /// Deprecated: use ``BasicDomainParser`` directly for the basic-only path.
-    /// It exposes the same lookup without paying for wildcard/exception
-    /// parsing up front, and the API surface is clearer about what's
-    /// happening at the call site.
-    @available(*, deprecated, message: "Use BasicDomainParser() for the basic-only path; use DomainParser() for full PSL parsing.")
-    public init(quickParsing: Bool) throws(DomainParserError) {
-        try self.init(_rulesData: _loadBundledPSLData(), quickParsing: quickParsing, sortRules: false)
+        try self.init(_rulesData: _loadBundledPSLData(), sortRules: false)
     }
 
     /// Test-only seam. Underscore-prefixed to signal "do not depend on me
     /// outside tests."
     init(_rulesData rulesData: Data,
-         quickParsing: Bool = false,
          sortRules: Bool = true) throws(DomainParserError) {
         _parsedRules = try RulesParser.parse(raw: rulesData, sortRules: sortRules)
         basicDomainParser = BasicDomainParser(suffixes: _parsedRules.basicRules)
-        onlyBasicRules = quickParsing
     }
 
     public func parse(host: String) -> ParsedHost? {
         // PSL rules are all lowercase; URL host comparison is case-insensitive.
         // Lowercase once here so both branches see canonical labels.
         let host = host.lowercased()
-        if onlyBasicRules {
-            return basicDomainParser.parse(host: host)
-        } else {
-            return parseExceptionsAndWildCardRules(host: host) ?? basicDomainParser.parse(host: host)
-        }
-     }
+        return parseExceptionAndWildcardRules(host: host)
+            ?? basicDomainParser.parse(host: host)
+    }
 
-    func parseExceptionsAndWildCardRules(host: String) -> ParsedHost? {
+    func parseExceptionAndWildcardRules(host: String) -> ParsedHost? {
         let hostComponents = host.split(separator: ".")
         guard let lastLabelSubstring = hostComponents.last else {
             return nil
