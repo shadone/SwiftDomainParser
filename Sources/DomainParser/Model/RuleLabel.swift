@@ -15,7 +15,7 @@ enum RuleLabel {
     case wildcard
 
     init(fromComponent component: Substring) {
-        self = component == Constant.wildcardComponent ? .wildcard : .text(String(component))
+        self = component == PSLSyntax.wildcardComponent ? .wildcard : .text(String(component))
     }
 
     /// Return true if self matches the given label

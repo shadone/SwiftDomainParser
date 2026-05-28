@@ -26,7 +26,7 @@ struct Rule {
     init(raw: Substring) {
 
         /// If the line starts with "!" it's an exceptional Rule
-        exception = raw.starts(with: Constant.exceptionMarker)
+        exception = raw.starts(with: PSLSyntax.exceptionMarker)
         source = exception ? String(raw.dropFirst()) : String(raw)
         parts = source.split(separator: ".").map(RuleLabel.init)
 
