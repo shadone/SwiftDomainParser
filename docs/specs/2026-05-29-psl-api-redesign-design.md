@@ -37,7 +37,11 @@ The current API has four problems:
 | `BasicDomainParser` | **Removed** from public API; basic-rule lookup absorbed as an internal detail |
 | Protocol | **Kept** (`PublicSuffixMatching`), slim — the DI/test seam; conveniences are protocol extensions |
 | Built-in mock | **None.** Consumers add their own conforming type if they need one |
-| Loading | Explicit `@concurrent async throws` factory; **no** `prepare()`/`cleanup()`; `parse()` stays pure/sync |
+| Loading | Explicit `@concurrent async throws` factory; **no** `prepare()`/`cleanup()`; `lookup()` stays pure/sync |
+| Method name | `lookup(_:)` (the type is `PublicSuffixList`, not a parser) |
+| Convenience accessor | `shared()` — actor-cached, load-once, for callers that don't want to own lifecycle |
+| Platforms | iOS / macOS / **Linux / Windows** (portable Foundation only) |
+| Docs | DocC catalog (landing page + ICANN-vs-PRIVATE, scope, IDN articles) |
 | Memory reclaim | Drop the reference (value type → ARC frees it); no explicit hook |
 
 ## Public API
@@ -56,6 +60,14 @@ public struct HostInfo: Sendable, Equatable, Hashable {
     public let subdomain: String?
     /// Which part of the list decided this match.
     public let source: MatchSource
+
+    /// The host is itself a bare public suffix (e.g. "co.uk") — nothing to
+    /// register under it. Equivalent to `registrableDomain == nil`.
+    public var isPublicSuffix: Bool { registrableDomain == nil }
+
+    /// The host IS exactly the registrable domain (eTLD+1) with no subdomain,
+    /// e.g. "github.com". Useful for autofill "is this the apex domain" checks.
+    public var isRegistrableDomain: Bool { subdomain == nil && registrableDomain != nil }
 }
 
 public enum MatchSource: Sendable, Equatable {
@@ -74,7 +86,7 @@ trusts `.icann` / `.privateRule`.
 
 ```swift
 public protocol PublicSuffixMatching: Sendable {
-    func parse(_ host: String, scope: MatchScope) -> HostInfo?
+    func lookup(_ host: String, scope: MatchScope) -> HostInfo?
 }
 
 public enum MatchScope: Sendable {
@@ -83,7 +95,7 @@ public enum MatchScope: Sendable {
 }
 ```
 
-Only `parse` is a protocol requirement; everything else is a protocol
+Only `lookup` is a protocol requirement; everything else is a protocol
 extension so any conformer (real or a consumer's test double) gets it free.
 
 ### Concrete type and loading
@@ -99,14 +111,40 @@ public struct PublicSuffixList: PublicSuffixMatching, Sendable {
     @concurrent
     public static func loading(from data: Data) async throws(PublicSuffixListError) -> PublicSuffixList
 
+    /// Convenience for callers that don't want to own the lifecycle: loads the
+    /// bundled list once and returns the cached value thereafter. Backed by an
+    /// internal actor. Cost is still explicit (you await); trade-off is
+    /// process-lifetime retention (no memory reclaim). Use `bundled()` if you
+    /// want to control the lifetime yourself.
+    public static func shared() async throws(PublicSuffixListError) -> PublicSuffixList
+
     /// Pure, synchronous, instant. Never loads, never blocks.
-    public func parse(_ host: String, scope: MatchScope = .all) -> HostInfo?
+    public func lookup(_ host: String, scope: MatchScope = .all) -> HostInfo?
+
+    /// Provenance of the loaded list, for diagnostics ("which list version
+    /// produced this match?").
+    public var metadata: ListMetadata { get }
+}
+
+public struct ListMetadata: Sendable, Equatable {
+    /// Date the bundled list was fetched, if known (ISO-8601), e.g. "2026-05-28".
+    public let sourceDate: String?
+    /// Upstream commit/revision the list was fetched at, if known.
+    public let sourceRevision: String?
+    /// Rule counts, useful in logs.
+    public let icannRuleCount: Int
+    public let privateRuleCount: Int
 }
 ```
 
+`metadata` is populated from a header comment that `script/UpdatePSL.swift`
+writes into the bundled `.dat` at update time (the upstream list has no
+standard version line); the loader parses it. `loading(from:)` fills what it
+can and leaves the rest `nil`.
+
 There is deliberately **no loading `init()`**: construction is explicit and
 awaited so the cost is visible at the call site (`try await .bundled()`).
-`parse()` is a pure value query — no lazy load, no lock, no first-call hitch.
+`lookup()` is a pure value query — no lazy load, no lock, no first-call hitch.
 "Cleanup" = release the reference; ARC frees the few-hundred-KB rule sets.
 
 `@concurrent` matters under Swift 6.2's nonisolated-nonsending default: a plain
@@ -118,33 +156,61 @@ hitch.
 
 ```swift
 extension PublicSuffixMatching {
-    func parse(_ url: URL, scope: MatchScope = .all) -> HostInfo?
+    func lookup(_ url: URL, scope: MatchScope = .all) -> HostInfo?
     func registrableDomain(of host: String, scope: MatchScope = .all) -> String?
     func publicSuffix(of host: String, scope: MatchScope = .all) -> String?
     func isPublicSuffix(_ host: String, scope: MatchScope = .all) -> Bool
 
-    /// Passie's key primitive: do two hosts share a registrable domain?
-    /// false if either is a bare suffix or unparseable. PRIVATE rules
-    /// included by default, so alice.github.io and bob.github.io are NOT
-    /// the same site.
-    func sameSite(_ a: String, _ b: String, scope: MatchScope = .all) -> Bool
+    /// Passie's key primitive: do two hosts resolve to the same registrable
+    /// domain? false if either is a bare suffix or unparseable. PRIVATE rules
+    /// included by default, so alice.github.io and bob.github.io are NOT equal.
+    ///
+    /// Named to avoid collision with the web platform's "same-site" (RFC
+    /// 6265bis), which is schemeful and cookie-specific. This is purely
+    /// scheme-agnostic registrable-domain equality.
+    func haveSameRegistrableDomain(_ a: String, _ b: String, scope: MatchScope = .all) -> Bool
 }
 ```
 
 ## Behavior details
 
-- **`parse` returns `nil`** only for non-hostnames: empty input and IP literals
-  (a new quality touch — `192.168.0.1` must not pretend to have a registrable
-  domain). Every real hostname yields a `HostInfo`, because `.defaultRule`
-  guarantees a suffix.
+### Input normalization (defined explicitly)
+
+Applied before matching, in this order:
+
+- **Lowercase** (Unicode-aware), as today.
+- **Trailing dot (FQDN form):** strip a single trailing `.` — `example.com.` →
+  `example.com`. A host that is *only* dots, or has a leading dot, or contains
+  an **empty label** (`foo..com`, `.com`) is rejected → `nil`. (We do not let
+  `split` silently swallow empty labels.)
+- **IP literals → `nil`:** reject both IPv4 dotted-quads (`192.168.0.1`) and
+  IPv6, including the bracketed form a URL host yields (`[::1]`, `[fe80::1]`).
+  An IP is not a domain and must not appear to have a registrable domain.
+
+`lookup` returns `nil` for these non-hostnames (and for empty input). Every
+*real* hostname yields a `HostInfo`, because `.defaultRule` guarantees a suffix.
+
+### Matching
+
 - **Scope.** With `.all`, PRIVATE rules are consulted first (more specific),
   then ICANN, then the implicit `*`. With `.icannOnly`, PRIVATE rules are
   ignored: `alice.github.io` → suffix `io` (icann), registrable `github.io`.
+- **Wildcards at any position.** Rules like `*.compute.amazonaws.com` and
+  exceptions like `!city.kawasaki.jp` are honored regardless of label position,
+  not just at the TLD.
 - **IDN.** Preserve the caller's ACE/Unicode form in the output; match
-  internally via Punycode-decode (current behavior, passes the official PSL
-  test suite). No new surface.
+  internally via Punycode-decode. See the IDNA limitation below.
 - **Errors.** Typed throws `throws(PublicSuffixListError)` on the factories
   only; queries never throw.
+
+### Known limitation: IDNA normalization
+
+Normalization is `String.lowercased()` + Punycode-decode of `xn--` labels — not
+full UTS-46 / IDNA2008 mapping (case folding, NFC, disallowed-codepoint
+handling), which needs ICU-grade tables. This matches the current library and
+passes the official PSL test suite, but a deliberately exotic Unicode host could
+in principle normalize differently than a fully IDNA-compliant implementation.
+Documented as an accepted trade-off, not an accidental gap.
 
 ## Internal structure
 
@@ -156,7 +222,58 @@ extension PublicSuffixMatching {
   set; it just carries the section bit now.
 - Lifecycle/singleton policy is a **consumer** concern. Passie can hold a small
   `actor DomainService { private var psl: PublicSuffixList? }` that loads once
-  and shares — the library stays a pure immutable matcher.
+  and shares — or just call `PublicSuffixList.shared()`. The library stays a
+  pure immutable matcher either way.
+- `shared()` is backed by a tiny internal actor caching `PublicSuffixList?`; the
+  first caller triggers `bundled()`, the rest await the cached value.
+
+## Portability (iOS / macOS / Linux / Windows)
+
+The library targets all Swift platforms, not just Apple ones.
+
+- Depend only on portable Foundation (`Data`, `URL`, `Bundle.module`,
+  `String`/`Unicode` APIs) — these exist in swift-corelibs-foundation on
+  Linux/Windows. Avoid Apple-only frameworks entirely (there are none today).
+- `Package.swift` keeps the Apple `platforms:` floors (iOS 18 / macOS 15) but
+  imposes no restriction on Linux/Windows, which SwiftPM treats as available by
+  default.
+- `Bundle.module` resource access is the one portability-sensitive spot;
+  verify the `.dat` loads under swift-corelibs-foundation.
+- **CI matrix:** build + run the full test suite (incl. the official
+  conformance suite) on macOS and Linux at minimum; add Windows if the runner
+  is cheap. This is what actually keeps portability honest.
+
+## Documentation (DocC)
+
+Ship a DocC catalog, not just doc comments — the security-relevant nuances
+deserve a narrative home:
+
+- Landing page: what the PSL is, the registrable-domain concept, the
+  build-once-share model.
+- Article: **ICANN vs PRIVATE** — why `alice.github.io` ≠ `bob.github.io` and
+  when to care (credential isolation).
+- Article: **Choosing a scope** — `.all` vs `.icannOnly`, with the cookie-vs-
+  credential framing.
+- Article: **IDN handling & limitations** — ACE/Unicode round-tripping and the
+  UTS-46 caveat.
+
+## Testing
+
+- **Official conformance suite is the backbone.** Keep running the upstream
+  `tests.txt` from publicsuffix.org against `lookup` (scope `.all`) — this is the
+  primary correctness guarantee and must stay green on every list update.
+- **New-behavior cases** (Swift Testing, parameterized where natural):
+  - Scope: same host under `.all` vs `.icannOnly` (e.g. `alice.github.io`).
+  - `source`: assert `.icann` / `.privateRule` / `.defaultRule` on representative
+    hosts (`example.com`, `alice.github.io`, `app.mycorp.internal`).
+  - Normalization: trailing dot, empty/leading-dot labels, IPv4 + IPv6 (incl.
+    bracketed) all → `nil`.
+  - `haveSameRegistrableDomain`: same-domain true; cross-tenant private false;
+    bare-suffix / unparseable false.
+  - `metadata`: counts non-zero, `sourceDate` parsed from the bundled header.
+  - IDN: ACE-in and Unicode-in for the same host agree.
+- **Invariant test:** the bundled `.dat` stays sorted/normalized as the loader
+  expects (carried over from current tests).
 
 ## Out of scope (deferred / YAGNI)
 
@@ -179,4 +296,4 @@ extension PublicSuffixMatching {
 | `FakeDomainParser` | removed (consumer-owned) |
 | `ParsedHost { publicSuffix, registrableDomain? }` | `HostInfo { publicSuffix, registrableDomain?, subdomain?, source }` |
 | `DomainParserError` | `PublicSuffixListError` |
-| — | `MatchScope`, `MatchSource`, `sameSite(_:_:)`, IP-literal rejection |
+| — | `MatchScope`, `MatchSource`, `ListMetadata`, `haveSameRegistrableDomain(_:_:)`, IP-literal rejection |
