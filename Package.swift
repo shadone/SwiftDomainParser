@@ -33,6 +33,7 @@ let package = Package(
         .testTarget(
             name: "DomainParserTests",
             dependencies: ["DomainParser"],
+            resources: [.process("Resources")],
             swiftSettings: upcomingFeatures
         ),
     ]
