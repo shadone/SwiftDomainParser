@@ -1,7 +1,7 @@
 import Foundation
 
 /// Represents a Public Suffix Rule
-struct Rule: Sendable {
+struct PSLRule: Sendable {
 
     /// Is this rule an exception
     let exception: Bool
@@ -10,7 +10,7 @@ struct Rule: Sendable {
     let source: String
 
     /// Labels separated rules
-    let parts: [RuleLabel]
+    let parts: [PSLRuleLabel]
 
     /// Score used to sort the rules. If a URL match multiple rules, the one with the highest Score is prevailing
     let rankingScore: Int
@@ -20,14 +20,14 @@ struct Rule: Sendable {
         /// If the line starts with "!" it's an exceptional Rule
         exception = raw.starts(with: PSLSyntax.exceptionMarker)
         source = exception ? String(raw.dropFirst()) : String(raw)
-        parts = source.split(separator: ".").map(RuleLabel.init)
+        parts = source.split(separator: ".").map(PSLRuleLabel.init)
 
         /// Exceptions should have a higher Rank than regular rules
         rankingScore = (exception ? 1000 : 0) + parts.count
     }
 }
 
-extension Rule {
+extension PSLRule {
 
     /// From https://publicsuffix.org/list/
     /// A domain is said to match a rule if and only if all of the following conditions are met:

@@ -76,7 +76,7 @@ public struct DomainParser: DomainParserProtocol, Sendable {
         // the bundled PSL's Unicode-form rules even when the caller passed ACE.
         guard let lastLabel = labels.normalized.last else { return nil }
 
-        let isMatching: (Rule) -> Bool = { $0.isMatching(hostLabels: labels) }
+        let isMatching: (PSLRule) -> Bool = { $0.isMatching(hostLabels: labels) }
         let rule = _parsedRules.exceptions[lastLabel]?.first(where: isMatching) ??
                    _parsedRules.wildcardRules[lastLabel]?.first(where: isMatching)
         return rule?.parse(hostLabels: labels)

@@ -278,7 +278,7 @@ struct DomainParserSuite {
     /// the runtime doesn't have to. Verify the wildcard/exception rule arrays
     /// come out sorted by descending rankingScore.
     @Test func parsedRulesFromLocalListAreSorted() {
-        let isSortedByDescendingScore: ([Rule]) -> Bool = { rules in
+        let isSortedByDescendingScore: ([PSLRule]) -> Bool = { rules in
             zip(rules, rules.dropFirst())
                 .allSatisfy { $0.rankingScore >= $1.rankingScore }
         }

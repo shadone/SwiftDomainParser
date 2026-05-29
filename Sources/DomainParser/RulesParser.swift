@@ -2,9 +2,9 @@ import Foundation
 
 struct ParsedRules: Sendable {
     /// Dictionary of rule arrays indexed by the last label of a rule.
-    let exceptions: [String: [Rule]]
+    let exceptions: [String: [PSLRule]]
     /// Dictionary of rule arrays indexed by the last label of a rule.
-    let wildcardRules: [String: [Rule]]
+    let wildcardRules: [String: [PSLRule]]
     /// Set of suffixes
     let basicRules: Set<String>
 }
@@ -17,8 +17,8 @@ enum RulesParser {
             throw DomainParserError.ruleParsingError(message: "Can't parse rules data. Is it in UTF-8 format?")
         }
 
-        var exceptions: [String: [Rule]] = [:]
-        var wildcardRules: [String: [Rule]] = [:]
+        var exceptions: [String: [PSLRule]] = [:]
+        var wildcardRules: [String: [PSLRule]] = [:]
         var basicRules: Set<String> = []
 
         for line in rulesText.split(separator: "\n") {
@@ -30,7 +30,7 @@ enum RulesParser {
 
         if sortRules {
             // Sort the collections from big to small so that the highest-priority rules are first.
-            let byScoreDescending: (Rule, Rule) -> Bool = { $0.rankingScore > $1.rankingScore }
+            let byScoreDescending: (PSLRule, PSLRule) -> Bool = { $0.rankingScore > $1.rankingScore }
             wildcardRules = wildcardRules.mapValues { $0.sorted(by: byScoreDescending) }
             exceptions = exceptions.mapValues { $0.sorted(by: byScoreDescending) }
         }
@@ -41,8 +41,8 @@ enum RulesParser {
     }
 
     private static func parse(line rawLine: Substring,
-                              into exceptions: inout [String: [Rule]],
-                              wildcardRules: inout [String: [Rule]],
+                              into exceptions: inout [String: [PSLRule]],
+                              wildcardRules: inout [String: [PSLRule]],
                               basicRules: inout Set<String>) throws(DomainParserError) {
         // From publicsuffix.org/list/: each line is only read up to the
         // first whitespace; entire lines can also be commented using "//".
@@ -53,14 +53,14 @@ enum RulesParser {
         guard !line.isEmpty, !line.hasPrefix("//") else { return }
 
         if line.contains("*") {
-            let rule = Rule(raw: line)
+            let rule = PSLRule(raw: line)
             guard case .text(let lastLabelText) = rule.parts.last else {
                 throw DomainParserError.ruleParsingError(
                     message: "Last label of PSL rule must be text (Rule: \(line))")
             }
             wildcardRules[lastLabelText, default: []].append(rule)
         } else if line.starts(with: "!") {
-            let rule = Rule(raw: line)
+            let rule = PSLRule(raw: line)
             guard case .text(let lastLabelText) = rule.parts.last else {
                 throw DomainParserError.ruleParsingError(
                     message: "Last label of PSL rule must be text (Rule: \(line))")
