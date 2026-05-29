@@ -1,5 +1,18 @@
 import Foundation
 
+// `in6_addr`, `inet_pton`, and `AF_INET6` come from the platform networking
+// module. Foundation re-exports it on Apple platforms, but on Windows/Linux it
+// must be imported explicitly.
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif canImport(WinSDK)
+import WinSDK
+#endif
+
 /// Detects IP-address literals so they can be rejected as non-hostnames.
 /// A host is a literal if it parses as IPv4 (exactly four 0–255 octets) or as
 /// IPv6 (optionally wrapped in `[...]`, the form a URL host component yields).
