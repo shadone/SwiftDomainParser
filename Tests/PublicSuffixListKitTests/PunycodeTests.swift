@@ -55,4 +55,32 @@ struct PunycodeSuite {
         // Empty input decodes to an empty string (no codepoints to emit).
         #expect(Punycode.decode("") == "")
     }
+
+    // MARK: - Encode (RFC 3492 §7.1, exact ACE outputs)
+
+    @Test("RFC 3492 §7.1 sample encodes",
+          arguments: [
+            ("egbpdaj6bu4bxfgehfvwxn",
+             "\u{0644}\u{064A}\u{0647}\u{0645}\u{0627}\u{0628}\u{062A}\u{0643}\u{0644}\u{0645}\u{0648}\u{0634}\u{0639}\u{0631}\u{0628}\u{064A}\u{061F}"),
+            ("ihqwcrb4cv8a8dqg056pqjye",
+             "\u{4ED6}\u{4EEC}\u{4E3A}\u{4EC0}\u{4E48}\u{4E0D}\u{8BF4}\u{4E2D}\u{6587}"),
+            ("Proprostnemluvesky-uyb24dma41a",
+             "\u{0050}\u{0072}\u{006F}\u{010D}\u{0070}\u{0072}\u{006F}\u{0073}\u{0074}\u{011B}\u{006E}\u{0065}\u{006D}\u{006C}\u{0075}\u{0076}\u{00ED}\u{010D}\u{0065}\u{0073}\u{006B}\u{0079}"),
+          ] as [(String, String)])
+    func encodeRFCVector(expectedACE: String, unicode: String) {
+        #expect(Punycode.encode(unicode) == expectedACE)
+    }
+
+    @Test("decode/encode round-trips PSL labels",
+          arguments: ["85x722f", "55qx5d", "fiqs8s", "egbpdaj6bu4bxfgehfvwxn"])
+    func roundTrips(ace: String) throws {
+        let unicode = try #require(Punycode.decode(ace))
+        #expect(Punycode.encode(unicode) == ace)
+    }
+
+    @Test func encodeEmptyAndPureASCII() {
+        #expect(Punycode.encode("") == "")
+        // Pure ASCII gets a trailing delimiter (the ACE body before xn-- logic).
+        #expect(Punycode.encode("abc") == "abc-")
+    }
 }

@@ -102,6 +102,68 @@ enum Punycode {
         return String(String.UnicodeScalarView(output))
     }
 
+    /// Encode a Unicode string to Punycode (without the `xn--` ACE prefix).
+    /// Returns `nil` only on arithmetic overflow (not reachable for DNS-length
+    /// labels). RFC 3492 §6.3.
+    static func encode(_ input: String) -> String? {
+        let codePoints = input.unicodeScalars.map(\.value)
+        var output: [Unicode.Scalar] = []
+
+        var n = initialN
+        var delta = 0
+        var bias = initialBias
+
+        // Copy basic (ASCII) code points verbatim, preserving their order/case.
+        for cp in codePoints where cp < 0x80 {
+            output.append(Unicode.Scalar(cp)!)
+        }
+        let basicCount = output.count
+        var handled = basicCount
+        if basicCount > 0 { output.append("-") }
+
+        while handled < codePoints.count {
+            // Smallest code point >= n still to be handled.
+            var m = UInt32.max
+            for cp in codePoints where cp >= n && cp < m { m = cp }
+
+            let (gap, gapOverflow) = (m - n).multipliedReportingOverflow(by: UInt32(handled + 1))
+            guard !gapOverflow else { return nil }
+            let (d1, addOverflow) = delta.addingReportingOverflow(Int(gap))
+            guard !addOverflow else { return nil }
+            delta = d1
+            n = m
+
+            for cp in codePoints {
+                if cp < n { delta += 1 }
+                if cp == n {
+                    var q = delta
+                    var k = base
+                    while true {
+                        let t = k <= bias ? tmin : (k >= bias + tmax ? tmax : k - bias)
+                        if q < t { break }
+                        output.append(digitScalar(t + (q - t) % (base - t)))
+                        q = (q - t) / (base - t)
+                        k += base
+                    }
+                    output.append(digitScalar(q))
+                    bias = adapt(delta: delta, numPoints: handled + 1, firstTime: handled == basicCount)
+                    delta = 0
+                    handled += 1
+                }
+            }
+            delta += 1
+            n += 1
+        }
+
+        return String(String.UnicodeScalarView(output))
+    }
+
+    /// Map a 0–35 numeric value to its Punycode digit codepoint.
+    /// 0..25 → 'a'..'z', 26..35 → '0'..'9'.
+    private static func digitScalar(_ d: Int) -> Unicode.Scalar {
+        Unicode.Scalar(UInt32(d < 26 ? 0x61 + d : 0x30 + d - 26))!
+    }
+
     /// Map a Punycode digit codepoint to its 0–35 numeric value.
     /// 'a'..'z' → 0..25 (case-insensitive), '0'..'9' → 26..35.
     private static func digitValue(of scalar: Unicode.Scalar) -> Int? {
