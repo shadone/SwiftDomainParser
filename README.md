@@ -104,8 +104,16 @@ other inputs that cannot be looked up):
 | `source`            | `MatchSource`   | `.privateRule`                |
 | `isPublicSuffix`    | `Bool`          | `false`                       |
 | `isRegistrableDomain` | `Bool`        | `false`                       |
+| `canonicalPublicSuffix` | `String`    | `"github.io"`                 |
+| `canonicalRegistrableDomain` | `String?` | `"alice.github.io"`        |
+| `asciiRegistrableDomain` | `String?`  | `"alice.github.io"`           |
 
 `MatchSource` values: `.icann`, `.privateRule`, `.defaultRule`.
+
+The `publicSuffix` / `registrableDomain` fields preserve the caller's input
+spelling (A-label or U-label). The `canonical*` fields give the UTS-46 U-label
+(NFC) form for comparison and storage, and `asciiRegistrableDomain` the A-label
+(`xn--`) form — see [Internationalized domain names](#internationalized-domain-names).
 
 ### Loading from custom data
 
@@ -174,21 +182,48 @@ directory.
 
 ## Internationalized domain names
 
-Hosts may be passed in either Unicode form (e.g. `公司.cn`) or
-ACE/Punycode form (e.g. `xn--55qx5d.cn`); the library handles both and
-preserves the caller's form in the output. Internally each `xn--`-prefixed
-label is RFC 3492-decoded and compared against the bundled PSL's
-Unicode-form rules.
+Hosts are normalized with **UTS-46** (nontransitional, `UseSTD3ASCIIRules =
+false` — the WHATWG URL / browser default): a mapping table compiled from
+Unicode's `IdnaMappingTable.txt`, NFC normalization, and Punycode
+decode/encode. So a host may be passed in any form — Unicode (`公司.cn`),
+ACE/Punycode (`xn--55qx5d.cn`), or a compatibility/case variant — and they all
+fold to one canonical form.
+
+Lookup output preserves the caller's spelling, while the `canonical*` fields and
+comparison use the canonical form:
 
 ```swift
 let psl = try await PublicSuffixList.shared()
+
+// Display fields round-trip the caller's spelling:
 psl.lookup("shishi.公司.cn")?.registrableDomain        // "shishi.公司.cn"
 psl.lookup("shishi.xn--55qx5d.cn")?.registrableDomain  // "shishi.xn--55qx5d.cn"
+
+// ...but canonical forms (and equality) treat them as the same domain:
+psl.lookup("shishi.公司.cn")?.canonicalRegistrableDomain   // "shishi.公司.cn"
+psl.lookup("shishi.公司.cn")?.asciiRegistrableDomain       // "shishi.xn--55qx5d.cn"
+psl.haveSameRegistrableDomain("食狮.公司.cn",
+                              "xn--85x722f.xn--55qx5d.cn")  // true
 ```
 
-Full UTS-46 IDNA normalization (NFC, Bidi checks, etc.) is **not**
-implemented; this is a Punycode encode/decode-aware PSL lookup, not a
-general IDNA processor.
+Correctness is verified against Unicode's official `IdnaTestV2.txt` conformance
+vectors. The IDNA2008 **Bidi rule** and **ContextJ/ContextO** joiner checks are
+not implemented — they govern whether a name may be *registered*, not which
+registrable domain a host belongs to.
+
+## Refreshing the bundled Unicode data
+
+The bundled UTS-46 mapping table lives at
+`Sources/PublicSuffixListKit/Resources/idna_mapping.bin`. To regenerate it from
+a newer Unicode version:
+
+```bash
+swift script/UpdateIDNAMapping.swift
+```
+
+It fetches `IdnaMappingTable.txt` from `unicode.org` and compiles it into the
+compact binary table. As with `UpdatePSL.swift`, the target path is resolved
+relative to the script, so it runs from anywhere.
 
 ## License
 
