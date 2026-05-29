@@ -32,7 +32,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           branch: psl-refresh
-          base: master
+          base: develop
           delete-branch: true
           title: 'chore(psl): weekly refresh'
           commit-message: 'data: refresh public_suffix_list.dat from publicsuffix.org'
