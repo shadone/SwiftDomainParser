@@ -38,7 +38,11 @@ internal func _loadBundledPSLData() throws(DomainParserError) -> Data {
 }
 
 /// Parses hostnames using the bundled Public Suffix List.
-public struct DomainParser: DomainParserProtocol {
+///
+/// Immutable and `Sendable`: build one instance and share it across threads
+/// and actors. Construction parses the bundled PSL (~10K rules) and is the
+/// expensive step; per-call `parse(host:)` lookups are cheap.
+public struct DomainParser: DomainParserProtocol, Sendable {
 
     /// Test-only seam. Exposed at `internal` so `@testable import` can read it;
     /// underscore-prefixed to signal "do not depend on me outside tests."

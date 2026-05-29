@@ -2,7 +2,10 @@ import Foundation
 
 /// Parses a hostname using only the basic (non-wildcard, non-exception) suffix rules.
 /// Examples of valid rules: **com**, **co.uk**, **ide.kyoto.jp**.
-public struct BasicDomainParser: DomainParserProtocol {
+///
+/// Immutable and `Sendable`: build one instance and share it across threads
+/// and actors.
+public struct BasicDomainParser: DomainParserProtocol, Sendable {
 
     /// PSL basic-rule set stored as `Substring` views. Each Substring keeps
     /// its base `String` (the original rule from `RulesParser`) alive via
