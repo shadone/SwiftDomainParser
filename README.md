@@ -124,7 +124,7 @@ All three factory methods are `async throws(PublicSuffixListError)`, so
 ```swift
 do {
     let psl = try await PublicSuffixList.bundled()
-} catch .missingPublicSuffixListResource {
+} catch .missingBundledResource {
     // bundled PSL file missing - should never happen in shipping builds
 } catch .ruleParsingError(let message) {
     // PSL data is malformed UTF-8 or has an unsupported rule shape

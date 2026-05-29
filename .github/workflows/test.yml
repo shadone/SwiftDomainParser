@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Least privilege: this workflow only builds/tests, so no write scopes.
+# Limits blast radius if any third-party action step is compromised.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -50,7 +55,7 @@ jobs:
     continue-on-error: true   # best-effort until proven stable
     steps:
       - uses: actions/checkout@v4
-      - uses: compnerd/gha-setup-swift@main
+      - uses: compnerd/gha-setup-swift@eeda069c5bc95ac8a9ac5cea7d4f588ae5420ca5 # v0.4.0
         with:
           branch: swift-6.2-release
           tag: 6.2-RELEASE
