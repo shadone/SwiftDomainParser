@@ -101,11 +101,30 @@ enum IDNA {
         }
 
         let normalized = String(mapped).precomposedStringWithCanonicalMapping
+
+        // Break into labels on the SCALAR U+002E, not the Character "." — a
+        // combining mark following a dot would otherwise merge the dot into a
+        // grapheme cluster and hide the separator.
+        var labelScalars: [[Unicode.Scalar]] = [[]]
+        for scalar in normalized.unicodeScalars {
+            if scalar == "." { labelScalars.append([]) }
+            else { labelScalars[labelScalars.count - 1].append(scalar) }
+        }
+
         var labels: [String] = []
-        for labelSub in normalized.split(separator: ".", omittingEmptySubsequences: false) {
-            var label = String(labelSub)
+        for (i, scalars) in labelScalars.enumerated() {
+            var label = String(String.UnicodeScalarView(scalars))
+            if scalars.isEmpty {
+                // Empty label is allowed only as a single trailing root label.
+                if !(i == labelScalars.count - 1 && labelScalars.count > 1) { error = true }
+                labels.append(label)
+                continue
+            }
             if label.hasPrefix("xn--") {
-                guard let decoded = Punycode.decode(String(label.dropFirst(4))) else {
+                // A valid A-label must decode and contain at least one non-ASCII
+                // code point (a pure-ASCII xn-- label is a fake ACE).
+                guard let decoded = Punycode.decode(String(label.dropFirst(4))),
+                      !decoded.unicodeScalars.allSatisfy(\.isASCII) else {
                     error = true; labels.append(label); continue
                 }
                 label = decoded
@@ -124,7 +143,10 @@ enum IDNA {
     private static func isValidLabel(_ label: String, table: IDNAMapping,
                                      transitional: Bool, checkHyphens: Bool) -> Bool {
         if label.isEmpty { return true }                 // empty (root) label
-        if label.precomposedStringWithCanonicalMapping != label { return false }   // V1: NFC
+        // V1: must be NFC. Compare scalars, not `==` — Swift String equality is
+        // canonical-equivalence-aware and would treat NFD as equal to NFC.
+        if Array(label.unicodeScalars)
+            != Array(label.precomposedStringWithCanonicalMapping.unicodeScalars) { return false }
 
         let scalars = Array(label.unicodeScalars)
         if checkHyphens {
@@ -176,14 +198,12 @@ enum IDNA {
 
         let result = aceLabels.joined(separator: ".")
         if verifyDnsLength {
-            for (i, label) in aceLabels.enumerated() {
-                let isRootDot = i == aceLabels.count - 1 && label.isEmpty && aceLabels.count > 1
-                if !isRootDot && (label.utf8.count < 1 || label.utf8.count > 63) { error = true }
+            // Per the conformance vectors, each label (including an empty trailing
+            // root label) must be 1..63 octets, and the whole name 1..253.
+            for label in aceLabels where label.utf8.count < 1 || label.utf8.count > 63 {
+                error = true
             }
-            // Total length excludes a single trailing root dot.
-            var total = result.utf8.count
-            if result.hasSuffix(".") { total -= 1 }
-            if total < 1 || total > 253 { error = true }
+            if result.utf8.count < 1 || result.utf8.count > 253 { error = true }
         }
         return (result, error)
     }
