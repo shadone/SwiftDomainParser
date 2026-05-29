@@ -24,7 +24,9 @@ API. Not source-compatible with Dashlane upstream's 1.x API.
   `loading(from:)`.
 - `HostInfo` result type exposing `publicSuffix`, `registrableDomain`,
   `subdomain`, and `source` (`MatchSource`: `.icann`, `.privateRule`,
-  `.defaultRule`).
+  `.defaultRule`), plus canonical forms `canonicalPublicSuffix`,
+  `canonicalRegistrableDomain` (UTS-46 U-label, NFC) and `asciiRegistrableDomain`
+  (A-label / `xn--`).
 - `MatchScope` — `.all` (ICANN + PRIVATE, the default) or `.icannOnly`, accepted
   by every `lookup` and convenience method.
 - `PublicSuffixMatching` protocol as the dependency-injection seam (only
@@ -38,10 +40,14 @@ API. Not source-compatible with Dashlane upstream's 1.x API.
 - Implicit default `*` rule for unlisted TLDs (the PSL algorithm's step-2
   fallback), so such hosts resolve with `source == .defaultRule` instead of
   returning `nil`.
-- Punycode-aware IDN lookup: hosts are accepted in either Unicode (`公司.cn`) or
-  ACE/Punycode (`xn--55qx5d.cn`) form, and the caller's form is preserved in the
-  output. Full UTS-46 IDNA (NFC, Bidi, joiner-context checks) is still not
-  implemented.
+- UTS-46 IDN processing (nontransitional, `UseSTD3ASCIIRules = false`): full
+  mapping table (compiled from Unicode `IdnaMappingTable.txt`), NFC, and
+  Punycode decode/encode. Hosts are accepted in any form (Unicode, ACE, mapped,
+  or mixed); display output preserves the caller's spelling while comparison and
+  the `canonical*` fields fold equivalent spellings together, so
+  `食狮.公司.cn` ≡ `xn--85x722f.xn--55qx5d.cn`. Verified against Unicode's
+  `IdnaTestV2.txt`. The Bidi rule and ContextJ/O joiner checks (registration
+  validity) are not implemented.
 - Linux and Windows support, in addition to iOS and macOS.
 - DocC catalog (overview, ICANN vs PRIVATE, choosing a scope, IDN handling).
 
