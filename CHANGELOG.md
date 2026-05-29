@@ -12,10 +12,10 @@ not currently rebased onto upstream; the last synced upstream commit was
 [`8991b16`](https://github.com/Dashlane/SwiftDomainParser/commit/8991b16)
 (Swift 6 concurrency support + PSL refresh).
 
-## [Unreleased]
+## [2.0.0] - 2026-05-29
 
-Targeting **2.0.0** — a complete, breaking rewrite around the `PublicSuffixList`
-API. Not source-compatible with Dashlane upstream's 1.x API.
+A complete, breaking rewrite around the `PublicSuffixList` API. Not
+source-compatible with Dashlane upstream's 1.x API.
 
 ### Added
 
@@ -87,5 +87,5 @@ Last release before the rewrite. Tracks Dashlane upstream through
 [`8991b16`](https://github.com/Dashlane/SwiftDomainParser/commit/8991b16):
 Swift 6 concurrency support and a refreshed bundled Public Suffix List.
 
-[Unreleased]: https://github.com/shadone/PublicSuffixListKit/compare/1.1.1...HEAD
+[2.0.0]: https://github.com/shadone/PublicSuffixListKit/compare/1.1.1...2.0.0
 [1.1.1]: https://github.com/shadone/PublicSuffixListKit/releases/tag/1.1.1
