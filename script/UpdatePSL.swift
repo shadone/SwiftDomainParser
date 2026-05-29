@@ -25,29 +25,44 @@ let pslICANNMarker = "===BEGIN ICANN DOMAINS==="
 
 struct PublicSuffixListNormalizer {
     let data: Data
+    let sourceDate: String          // ISO-8601, passed in
 
-    /// A valid line is a non-empty, non-comment line.
-    private func isLineValid(_ line: String) -> Bool {
-        !line.isEmpty && !line.starts(with: "//")
-    }
+    private func isComment(_ line: String) -> Bool { line.hasPrefix("//") }
 
     func normalize() throws -> Data {
         guard let text = String(data: data, encoding: .utf8) else {
             throw PSLUpdateError.notUTF8Convertible
         }
 
-        // From publicsuffix.org/list/: each line is only read up to the first
-        // whitespace; entire lines can also be commented using //.
-        var validLines = text
-            .components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .compactMap { $0.components(separatedBy: .whitespaces).first }
-            .filter(isLineValid)
+        var icann: [String] = []
+        var priv: [String] = []
+        var inPrivate = false
 
-        // Rules with more labels are higher priority; put them first.
-        validLines.sort { $0.split(separator: ".").count > $1.split(separator: ".").count }
+        for rawLine in text.components(separatedBy: .newlines) {
+            let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            if trimmed.contains("===BEGIN PRIVATE DOMAINS===") { inPrivate = true; continue }
+            if trimmed.contains("===BEGIN ICANN DOMAINS===") { inPrivate = false; continue }
+            if trimmed.isEmpty || isComment(trimmed) { continue }
+            guard let token = trimmed.components(separatedBy: .whitespaces).first,
+                  !token.isEmpty else { continue }
+            if inPrivate { priv.append(token) } else { icann.append(token) }
+        }
 
-        return Data(validLines.joined(separator: "\n").utf8)
+        // Higher-label-count rules first within each section (priority hint).
+        let byLabels: (String, String) -> Bool = {
+            $0.split(separator: ".").count > $1.split(separator: ".").count
+        }
+        icann.sort(by: byLabels)
+        priv.sort(by: byLabels)
+
+        var out = "# source-date: \(sourceDate)\n"
+        out += "# source-revision:\n"          // upstream .dat has no revision; left blank
+        out += "# ===ICANN===\n"
+        out += icann.joined(separator: "\n")
+        out += "\n# ===PRIVATE===\n"
+        out += priv.joined(separator: "\n")
+        out += "\n"
+        return Data(out.utf8)
     }
 }
 
@@ -76,7 +91,9 @@ do {
             reason: "downloaded body does not contain \"\(pslICANNMarker)\" - aborting refresh")
     }
 
-    let normalized = try PublicSuffixListNormalizer(data: raw).normalize()
+    let today = ISO8601DateFormatter.string(from: Date(), timeZone: .gmt,
+        formatOptions: [.withFullDate])
+    let normalized = try PublicSuffixListNormalizer(data: raw, sourceDate: today).normalize()
     try normalized.write(to: targetURL)
     print("Wrote \(normalized.count) bytes to \(targetURL.path)")
 } catch {
