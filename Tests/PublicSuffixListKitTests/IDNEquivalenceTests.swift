@@ -42,4 +42,14 @@ struct IDNEquivalenceTests {
         let info = try #require(psl.lookup("食狮.公司.cn."))
         #expect(info.canonicalRegistrableDomain == "食狮.公司.cn")
     }
+
+    @Test func uts46MappedFormsMatch() async throws {
+        let psl = try await PublicSuffixList.bundled()
+        // FULLWIDTH "ＥＸＡＭＰＬＥ" maps to "example"; soft hyphen is ignored.
+        #expect(psl.haveSameRegistrableDomain(
+            "\u{FF25}\u{FF38}\u{FF21}\u{FF2D}\u{FF30}\u{FF2C}\u{FF25}.com",
+            "exa\u{00AD}mple.com"))
+        #expect(psl.registrableDomain(of: "\u{FF21}\u{FF22}.com",
+                                      scope: .all)?.isEmpty == false)
+    }
 }

@@ -2,8 +2,8 @@
 ///
 /// - `originalLabels`: lowercased, original ACE/Unicode form — used to build
 ///   output so the caller gets back the same form they passed in.
-/// - `matchLabels`: lowercased, xn-- labels Punycode-decoded — used to match
-///   the Unicode-form bundled rules.
+/// - `matchLabels`: full UTS-46 canonical form (mapped + NFC, xn-- labels
+///   Punycode-decoded) — used to match the Unicode-form bundled rules.
 struct NormalizedHost {
     let originalLabels: [String]
     let matchLabels: [String]
@@ -32,13 +32,7 @@ struct NormalizedHost {
         let original = rawLabels.map(String.init)
         self.originalLabels = original
         self.hadTrailingDot = trailingDot
-        self.matchLabels = original.map { label in
-            guard label.hasPrefix("xn--"),
-                  let decoded = Punycode.decode(String(label.dropFirst(4))) else {
-                return label
-            }
-            return decoded
-        }
+        self.matchLabels = original.map { IDNA.canonicalLabel($0) }
     }
 
     /// Join original labels from index `from` to the end, re-appending the
