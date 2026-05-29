@@ -1,4 +1,6 @@
-import Foundation
+// `public` because `parse(url:)` exposes Foundation's `URL` through this
+// module's public API (required under the InternalImportsByDefault feature).
+public import Foundation
 
 /// The common interface implemented by every parser in this module
 /// (`DomainParser`, `BasicDomainParser`, `FakeDomainParser`).
