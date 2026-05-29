@@ -16,23 +16,23 @@ let upcomingFeatures: [SwiftSetting] = [
 ]
 
 let package = Package(
-    name: "DomainParser",
+    name: "PublicSuffixListKit",
     platforms: [
         .iOS(.v18),
         .macOS(.v15),
     ],
     products: [
-        .library(name: "DomainParser", targets: ["DomainParser"]),
+        .library(name: "PublicSuffixListKit", targets: ["PublicSuffixListKit"]),
     ],
     targets: [
         .target(
-            name: "DomainParser",
+            name: "PublicSuffixListKit",
             resources: [.process("Resources")],
             swiftSettings: upcomingFeatures
         ),
         .testTarget(
-            name: "DomainParserTests",
-            dependencies: ["DomainParser"],
+            name: "PublicSuffixListKitTests",
+            dependencies: ["PublicSuffixListKit"],
             resources: [.process("Resources")],
             swiftSettings: upcomingFeatures
         ),

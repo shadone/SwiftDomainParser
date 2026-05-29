@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import DomainParser
+@testable import PublicSuffixListKit
 
 @Suite("Official PSL conformance")
 struct ConformanceTests {

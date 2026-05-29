@@ -1,4 +1,4 @@
-# ``DomainParser``
+# ``PublicSuffixListKit``
 
 Match hostnames against the Public Suffix List.
 

@@ -16,6 +16,12 @@ Complete API overhaul. Not source-compatible with 2.x.
 
 ### Breaking changes
 
+- **SPM module/library/target renamed `DomainParser` → `PublicSuffixListKit`.**
+  Update your import to `import PublicSuffixListKit` and the dependency product
+  name to `"PublicSuffixListKit"`. The module is named `PublicSuffixListKit`
+  (not `PublicSuffixList`) to avoid colliding with the primary `PublicSuffixList`
+  type. Sources moved to `Sources/PublicSuffixListKit/`, tests to
+  `Tests/PublicSuffixListKitTests/`.
 - **`DomainParser` renamed to `PublicSuffixList`.** The old synchronous `init()`
   is gone; use the async factory methods `bundled()`, `shared()`, or
   `loading(from:)`.

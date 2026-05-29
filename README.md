@@ -1,4 +1,4 @@
-# DomainParser
+# PublicSuffixListKit
 
 ![Platforms](https://img.shields.io/badge/Platforms-iOS%2018%20%7C%20macOS%2015%20%7C%20Linux%20%7C%20Windows-blue.svg?style=flat)
 ![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg?style=flat)
@@ -41,12 +41,12 @@ Swift Package Manager:
 .package(url: "https://github.com/shadone/SwiftDomainParser.git", from: "2.0.0"),
 ```
 
-then add `"DomainParser"` to your target's dependencies.
+then add `"PublicSuffixListKit"` to your target's dependencies.
 
 ## Usage
 
 ```swift
-import DomainParser
+import PublicSuffixListKit
 
 let psl = try await PublicSuffixList.shared()   // load once, cached
 
@@ -160,7 +160,7 @@ meta.privateRuleCount  // Number of PRIVATE rules loaded
 ## Refreshing the bundled Public Suffix List
 
 The PSL changes regularly. The bundled copy lives at
-`Sources/DomainParser/Resources/public_suffix_list.dat`. To refresh:
+`Sources/PublicSuffixListKit/Resources/public_suffix_list.dat`. To refresh:
 
 ```bash
 swift script/UpdatePSL.swift

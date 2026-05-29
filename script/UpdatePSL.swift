@@ -1,11 +1,11 @@
 //
 //  UpdatePSL.swift
-//  DomainParser
+//  PublicSuffixListKit
 //
 //  Fetches publicsuffix.org/list/public_suffix_list.dat, normalizes it
 //  (strips comments / whitespace, sorts by descending label count so
 //  highest-priority rules come first), and writes the result over the
-//  bundled copy at Sources/DomainParser/Resources/public_suffix_list.dat.
+//  bundled copy at Sources/PublicSuffixListKit/Resources/public_suffix_list.dat.
 //
 //  Run from anywhere:
 //      swift script/UpdatePSL.swift
@@ -73,7 +73,7 @@ let sourceURL = URL(string: "https://publicsuffix.org/list/public_suffix_list.da
 let targetURL = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()    // script/
     .deletingLastPathComponent()    // repo root
-    .appendingPathComponent("Sources/DomainParser/Resources/public_suffix_list.dat")
+    .appendingPathComponent("Sources/PublicSuffixListKit/Resources/public_suffix_list.dat")
     .standardizedFileURL
 
 do {

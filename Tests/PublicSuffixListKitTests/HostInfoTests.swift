@@ -1,5 +1,5 @@
 import Testing
-@testable import DomainParser
+@testable import PublicSuffixListKit
 
 @Suite("HostInfo")
 struct HostInfoTests {
