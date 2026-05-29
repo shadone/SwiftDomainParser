@@ -37,14 +37,13 @@ extension PublicSuffixMatching {
     /// alice.github.io and bob.github.io are NOT equal.
     ///
     /// Scheme-agnostic registrable-domain equality — not the web platform's
-    /// schemeful "same-site" (RFC 6265bis). Trailing dots are canonicalized
-    /// away before comparing.
+    /// schemeful "same-site" (RFC 6265bis). Compares the canonical registrable
+    /// domain, so A-label/U-label forms and trailing dots are equated:
+    /// `食狮.公司.cn` ≡ `xn--85x722f.xn--55qx5d.cn`, `example.com` ≡ `example.com.`.
     public func haveSameRegistrableDomain(_ a: String, _ b: String,
                                           scope: MatchScope = .all) -> Bool {
         func key(_ host: String) -> String? {
-            guard var rd = lookup(host, scope: scope)?.registrableDomain else { return nil }
-            if rd.hasSuffix(".") { rd.removeLast() }
-            return rd
+            lookup(host, scope: scope)?.canonicalRegistrableDomain
         }
         guard let ka = key(a), let kb = key(b) else { return false }
         return ka == kb

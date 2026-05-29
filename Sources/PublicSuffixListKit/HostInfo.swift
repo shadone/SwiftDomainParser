@@ -11,12 +11,23 @@ public struct HostInfo: Sendable, Equatable, Hashable {
     /// Which part of the list decided this match.
     public let source: MatchSource
 
+    /// Canonical form of `publicSuffix`: a single U-label representation (any
+    /// `xn--` labels Punycode-decoded, then NFC + lowercased), independent of
+    /// the caller's A-label/U-label form. Use this for comparison and storage.
+    public let canonicalPublicSuffix: String
+    /// Canonical form of `registrableDomain` (see `canonicalPublicSuffix`); nil
+    /// when the host is itself a bare public suffix. A trailing FQDN dot is
+    /// dropped, so `example.com` and `example.com.` share one canonical form.
+    public let canonicalRegistrableDomain: String?
+
     public init(publicSuffix: String, registrableDomain: String?,
                 subdomain: String?, source: MatchSource) {
         self.publicSuffix = publicSuffix
         self.registrableDomain = registrableDomain
         self.subdomain = subdomain
         self.source = source
+        self.canonicalPublicSuffix = IDNCanonical.host(publicSuffix) ?? publicSuffix
+        self.canonicalRegistrableDomain = IDNCanonical.host(registrableDomain)
     }
 
     /// The host is itself a bare public suffix (e.g. "co.uk").
