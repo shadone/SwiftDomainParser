@@ -33,3 +33,26 @@ jobs:
 
       - name: Test
         run: swift test
+
+  test-linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift build
+      - run: swift test
+
+  test-windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    continue-on-error: true   # best-effort until proven stable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@main
+        with:
+          branch: swift-6.2-release
+          tag: 6.2-RELEASE
+      - run: swift build
+      - run: swift test
