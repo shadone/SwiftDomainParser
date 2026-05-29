@@ -20,14 +20,21 @@ public struct HostInfo: Sendable, Equatable, Hashable {
     /// dropped, so `example.com` and `example.com.` share one canonical form.
     public let canonicalRegistrableDomain: String?
 
+    /// ACE / A-label (`xn--`) form of the registrable domain, e.g.
+    /// `xn--85x722f.xn--55qx5d.cn`; nil when there is no registrable domain.
+    /// Pure-ASCII domains are unchanged.
+    public let asciiRegistrableDomain: String?
+
     public init(publicSuffix: String, registrableDomain: String?,
                 subdomain: String?, source: MatchSource) {
         self.publicSuffix = publicSuffix
         self.registrableDomain = registrableDomain
         self.subdomain = subdomain
         self.source = source
+        let canonicalRegistrable = IDNCanonical.host(registrableDomain)
         self.canonicalPublicSuffix = IDNCanonical.host(publicSuffix) ?? publicSuffix
-        self.canonicalRegistrableDomain = IDNCanonical.host(registrableDomain)
+        self.canonicalRegistrableDomain = canonicalRegistrable
+        self.asciiRegistrableDomain = IDNA.aceFromCanonical(canonicalRegistrable)
     }
 
     /// The host is itself a bare public suffix (e.g. "co.uk").

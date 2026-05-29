@@ -43,4 +43,33 @@ struct IDNAMappingTests {
         // "e" + COMBINING ACUTE ACCENT (NFD) -> precomposed "é" (NFC)
         #expect(IDNA.canonicalLabel("cafe\u{0301}") == "caf\u{00E9}")
     }
+
+    // MARK: - Strict toASCII / toUnicode
+
+    @Test func toASCIIEncodesUnicodeLabels() {
+        let out = IDNA.toASCII("食狮.公司.cn")
+        #expect(out.result == "xn--85x722f.xn--55qx5d.cn")
+        #expect(out.error == false)
+    }
+
+    @Test func toUnicodeDecodesACE() {
+        let out = IDNA.toUnicode("xn--85x722f.xn--55qx5d.cn")
+        #expect(out.result == "食狮.公司.cn")
+        #expect(out.error == false)
+    }
+
+    @Test func toASCIIMapsThenEncodes() {
+        // FULLWIDTH A -> "a"
+        #expect(IDNA.toASCII("\u{FF21}.com").result == "a.com")
+    }
+
+    @Test func toASCIIFlagsDisallowedCodePoint() {
+        // C1 control (U+0080) is disallowed
+        #expect(IDNA.toASCII("a\u{0080}.com").error == true)
+    }
+
+    @Test func toASCIIFlagsHyphenRules() {
+        #expect(IDNA.toASCII("-bad.com").error == true)     // leading hyphen (V3)
+        #expect(IDNA.toASCII("ab--cd.com").error == true)   // hyphens at 3,4 (V2)
+    }
 }

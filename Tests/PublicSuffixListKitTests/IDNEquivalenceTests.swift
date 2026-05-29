@@ -52,4 +52,15 @@ struct IDNEquivalenceTests {
         #expect(psl.registrableDomain(of: "\u{FF21}\u{FF22}.com",
                                       scope: .all)?.isEmpty == false)
     }
+
+    @Test func asciiRegistrableDomainIsACE() async throws {
+        let psl = try await PublicSuffixList.bundled()
+        let idn = try #require(psl.lookup("www.食狮.公司.cn"))
+        #expect(idn.asciiRegistrableDomain == "xn--85x722f.xn--55qx5d.cn")
+        let ascii = try #require(psl.lookup("a.example.com"))
+        #expect(ascii.asciiRegistrableDomain == "example.com")
+        // The A-label of a U-label input matches the A-label input's display.
+        let aLabel = try #require(psl.lookup("xn--85x722f.xn--55qx5d.cn"))
+        #expect(idn.asciiRegistrableDomain == aLabel.asciiRegistrableDomain)
+    }
 }
