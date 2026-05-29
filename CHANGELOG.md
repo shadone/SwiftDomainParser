@@ -12,7 +12,8 @@ Commits are listed newest-first. Upstream-derived ancestors stop at
 
 ## 2.0.0 — PublicSuffixList rewrite (breaking)
 
-Complete API overhaul. Not source-compatible with 2.x.
+First release of the fork's PublicSuffixList API. Complete API overhaul; not
+source-compatible with Dashlane upstream's 1.x API.
 
 ### Breaking changes
 
@@ -78,63 +79,6 @@ Complete API overhaul. Not source-compatible with 2.x.
 - **Linux and Windows supported.** The package now builds and tests on Linux
   and Windows in addition to iOS/macOS.
 - **Swift tools version bumped to 6.2.**
-
-## 2.0.0
-
-First release of the fork. Treats the codebase as Swift 6-first and is **not
-source-compatible with Dashlane upstream's 1.x API.**
-
-### Breaking changes
-
-- **`ParsedHost.domain` → `ParsedHost.registrableDomain`.** The new name
-  matches the PSL spec / WHATWG URL standard. The matching `init` label
-  changes too.
-- **`DomainParser.init(quickParsing:)` removed.** Use
-  `BasicDomainParser()` for the basic-only path; use `DomainParser()` for
-  full PSL parsing.
-- **`DomainParserError` is now `public` with a new `.bundleLoadFailed`
-  case** (Foundation errors from `Data(contentsOf:)` wrap into it).
-- **All library `throws` are typed `throws(DomainParserError)`.** `try!`
-  / `try?` callers are unaffected; explicit `do/catch` callers can drop
-  the fallthrough clause and rely on exhaustiveness checking.
-- **Deployment targets raised to iOS 18 / macOS 15** and Swift tools
-  version pinned to 6.0.
-- **No more Xcode project / Carthage support.** SPM only. Sources live at
-  `Sources/DomainParser/`, tests at `Tests/DomainParserTests/`.
-
-### New API
-
-- `init() throws(DomainParserError)` on `BasicDomainParser` — the
-  type is publicly constructible and exposes a `Set<String>`-backed
-  lookup with no wildcard/exception parsing overhead.
-- `parse(url: URL) -> ParsedHost?` default extension on
-  `DomainParserProtocol`.
-- `FakeDomainParser` (DEBUG builds only) for SwiftUI previews and tests.
-- `ParsedHost` conforms to `Hashable` (was: only `Equatable`).
-- **Punycode / IDN support.** Hosts may now be passed in either Unicode
-  form (`公司.cn`) or ACE form (`xn--55qx5d.cn`); each `xn--` label is
-  RFC 3492-decoded internally before matching against the bundled PSL's
-  Unicode-form rules. Output preserves the caller's form. Full UTS-46
-  IDNA processing (NFC, Bidi checks) is not implemented.
-
-### Fixed
-
-- Hosts with uppercase letters that should match an exception or wildcard
-  rule (e.g. `WWW.CK`) no longer fall through to the basic-rules path. The
-  parser now lowercases once at the entry point.
-- `RulesParser` tolerates raw upstream PSL input (blank lines, `//`
-  comments, inline trailing whitespace per the spec) instead of treating
-  comment lines as basic rules.
-
-### Tooling
-
-- Swift Testing parameterized suite covers the 60-case PSL conformance
-  test; XCTest retained only for `measure {}` perf tests.
-- GitHub Actions: `test.yml` (PR + push, macOS) and `psl-refresh.yml`
-  (weekly cron, Linux container).
-- `script/UpdatePSL.swift` rewritten with `async`/`await` and
-  `#filePath`-relative target path; sanity-checks the downloaded body
-  for the official ICANN section marker.
 
 ## Fork divergence
 
