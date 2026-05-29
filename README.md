@@ -38,7 +38,7 @@ see the [format spec](https://github.com/publicsuffix/list/wiki/Format).
 Swift Package Manager:
 
 ```swift
-.package(url: "https://github.com/shadone/PublicSuffixList.git", from: "2.0.0"),
+.package(url: "https://github.com/shadone/PublicSuffixListKit.git", from: "2.0.0"),
 ```
 
 then add `"PublicSuffixListKit"` to your target's dependencies.
