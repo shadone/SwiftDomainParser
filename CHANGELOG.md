@@ -10,6 +10,69 @@ Commits are listed newest-first. Upstream-derived ancestors stop at
 [`8991b16`](https://github.com/Dashlane/SwiftDomainParser/commit/8991b16)
 ("data: refresh public_suffix_list.dat from publicsuffix.org").
 
+## 2.0.0 — PublicSuffixList rewrite (breaking)
+
+Complete API overhaul. Not source-compatible with 2.x.
+
+### Breaking changes
+
+- **`DomainParser` renamed to `PublicSuffixList`.** The old synchronous `init()`
+  is gone; use the async factory methods `bundled()`, `shared()`, or
+  `loading(from:)`.
+- **`ParsedHost` renamed to `HostInfo`.** Fields `publicSuffix` and
+  `registrableDomain` are retained; `subdomain` is new; `source` (`MatchSource`)
+  is new.
+- **`DomainParserProtocol` renamed to `PublicSuffixMatching`.** The required
+  method is now `lookup(_:scope:) -> HostInfo?`; the old `parse(host:)` and
+  `parse(url:)` are replaced by protocol extensions (`lookup(_:URL,scope:)`,
+  `registrableDomain(of:scope:)`, `publicSuffix(of:scope:)`,
+  `isPublicSuffix(_:scope:)`, `haveSameRegistrableDomain(_:_:scope:)`).
+- **`DomainParserError` renamed to `PublicSuffixListError`.**
+- **`BasicDomainParser` removed.** Its logic is fully absorbed into
+  `PublicSuffixList`; full wildcard/exception correctness is the only behavior.
+- **`FakeDomainParser` removed.** Test code should provide a lightweight
+  `PublicSuffixMatching` conformance or use a real `PublicSuffixList` instance.
+
+### New API
+
+- `PublicSuffixList.bundled() async throws -> PublicSuffixList` — load the
+  bundled PSL, caller owns the lifetime.
+- `PublicSuffixList.shared() async throws -> PublicSuffixList` — process-wide
+  cached instance; safe to call from any isolation domain.
+- `PublicSuffixList.loading(from: Data) async throws -> PublicSuffixList` — load
+  from caller-supplied PSL data.
+- `HostInfo.source: MatchSource` — indicates whether the match came from an
+  ICANN rule (`.icann`), a PRIVATE rule (`.privateRule`), or the implicit
+  default rule for unlisted TLDs (`.defaultRule`).
+- `MatchScope` — `.all` (ICANN + PRIVATE, the default) or `.icannOnly`.
+  Every `lookup` / convenience method accepts an optional `scope` parameter.
+- `PublicSuffixMatching.haveSameRegistrableDomain(_:_:scope:)` — returns `true`
+  only when both hosts resolve to the same non-nil registrable domain; the
+  primary credential-matching primitive.
+- `PublicSuffixList.metadata: ListMetadata` — provenance of the loaded list:
+  `sourceDate`, `sourceRevision`, `icannRuleCount`, `privateRuleCount`.
+
+### New behavior
+
+- **Async loading factories** (`bundled()`, `shared()`, `loading(from:)`).
+  There is no synchronous `init`; construction is always `async throws`.
+- **Implicit default rule for unlisted TLDs.** A host whose TLD has no PSL
+  entry now resolves against an implicit `*` rule (the PSL spec's "Algorithm
+  step 2" fallback), returning a `HostInfo` with `source == .defaultRule`
+  instead of `nil`. The previous behavior was to return `nil` in this case.
+- **Trailing dot preserved in output.** A FQDN like `example.com.` round-trips
+  with its trailing dot intact in `publicSuffix` and `registrableDomain`.
+- **IP literals rejected.** IPv4 and IPv6 literals passed to `lookup` return
+  `nil` immediately.
+- **PSL issue #694 stance documented.** A host that is too short to form a
+  registrable domain under a wildcard rule (e.g. the host equals the wildcard's
+  base label) falls back to the base rule rather than returning nil or erroring.
+  This behavior is documented in source as a deliberate choice pending PSL spec
+  clarification.
+- **Linux and Windows supported.** The package now builds and tests on Linux
+  and Windows in addition to iOS/macOS.
+- **Swift tools version bumped to 6.2.**
+
 ## 2.0.0
 
 First release of the fork. Treats the codebase as Swift 6-first and is **not

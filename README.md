@@ -1,7 +1,7 @@
 # DomainParser
 
-![Platforms](https://img.shields.io/badge/Platforms-iOS%2018%20%7C%20macOS%2015-blue.svg?style=flat)
-![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg?style=flat)
+![Platforms](https://img.shields.io/badge/Platforms-iOS%2018%20%7C%20macOS%2015%20%7C%20Linux%20%7C%20Windows-blue.svg?style=flat)
+![Swift](https://img.shields.io/badge/Swift-6.2-orange.svg?style=flat)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE)
 
 A small Swift library for parsing hostnames against the
@@ -12,9 +12,9 @@ A small Swift library for parsing hostnames against the
 > **Note** — this is a personal fork of
 > [Dashlane/SwiftDomainParser](https://github.com/Dashlane/SwiftDomainParser),
 > maintained for [Passie](https://github.com/shadone/passie). It modernizes the
-> package for Swift 6 + iOS 18 / macOS 15, fixes a latent case-sensitivity bug,
-> and keeps the bundled PSL current. See [`CHANGELOG.md`](CHANGELOG.md) for
-> what's changed vs upstream.
+> package for Swift 6.2 + iOS 18 / macOS 15, adds Linux and Windows support,
+> rewrites the API around `PublicSuffixList`, and keeps the bundled PSL current.
+> See [`CHANGELOG.md`](CHANGELOG.md) for what's changed vs upstream.
 
 ## Why a PSL parser?
 
@@ -48,71 +48,114 @@ then add `"DomainParser"` to your target's dependencies.
 ```swift
 import DomainParser
 
-let parser = try DomainParser()
+let psl = try await PublicSuffixList.shared()   // load once, cached
+
+let info = psl.lookup("app.alice.github.io")!
+info.publicSuffix        // "github.io"   (PRIVATE rule)
+info.registrableDomain   // "alice.github.io"
+info.subdomain           // "app"
+info.source              // .privateRule
+
+// Credential-matching primitive:
+psl.haveSameRegistrableDomain("alice.github.io", "bob.github.io")  // false
+
+// Registry-level grouping instead:
+psl.lookup("alice.github.io", scope: .icannOnly)?.publicSuffix     // "io"
 ```
 
-Construction reads and parses the bundled PSL (~10K rules). Hold onto one
-instance and reuse it — `DomainParser` is `Sendable`, safe to share across
-isolation domains.
-
-### From a host string
-
-```swift
-let result = parser.parse(host: "awesome.example.co.uk")
-result?.registrableDomain  // "example.co.uk"
-result?.publicSuffix       // "co.uk"
-```
-
-Host comparison is case-insensitive; `EXAMPLE.com`, `example.COM`, and
-`example.com` all parse the same.
+Build one instance and share it — `PublicSuffixList` is an immutable `Sendable`
+value. Use `PublicSuffixList.bundled()` if you want to own its lifetime, or
+`shared()` for a process-wide cached instance.
 
 ### From a URL
 
 ```swift
-let result = parser.parse(url: URL(string: "https://www.example.com/path")!)
-result?.registrableDomain  // "example.com"
-result?.publicSuffix       // "com"
+let info = psl.lookup(URL(string: "https://www.example.com/path")!)
+info?.registrableDomain  // "example.com"
+info?.publicSuffix       // "com"
 ```
 
 Returns `nil` if the URL has no host component (e.g. `file:///etc/hosts`).
 
-### Basic-only parsing
+### ICANN-only scope
 
-If you don't need wildcard or exception rules, use `BasicDomainParser`
-directly — the lookup is one `Set<String>.contains` per host label, with no
-wildcard/exception logic on the hot path:
+By default `lookup` matches both ICANN and PRIVATE rules. Pass `.icannOnly` to
+restrict matching to the ICANN section of the PSL:
 
 ```swift
-let basic = try BasicDomainParser()
-basic.parse(host: "example.com")?.registrableDomain  // "example.com"
+psl.lookup("alice.github.io", scope: .icannOnly)?.publicSuffix  // "io"
+psl.registrableDomain(of: "alice.github.io", scope: .icannOnly)  // "github.io"
 ```
 
-`BasicDomainParser` requires lowercase input. `DomainParser` lowercases for
-you internally; if you reach for `BasicDomainParser` directly, pass
-`host.lowercased()`.
+This is useful when you want registry-level grouping rather than
+service-level grouping (e.g. treating `github.io` as one registrant, not each
+`*.github.io` subdomain as its own registrable domain).
+
+### HostInfo fields
+
+`lookup` returns a `HostInfo` value (or `nil` for IP literals and
+other inputs that cannot be looked up):
+
+| Property            | Type            | Example                       |
+|---------------------|-----------------|-------------------------------|
+| `publicSuffix`      | `String`        | `"github.io"`                 |
+| `registrableDomain` | `String?`       | `"alice.github.io"` (nil for a bare TLD) |
+| `subdomain`         | `String?`       | `"app"` (nil if none)         |
+| `source`            | `MatchSource`   | `.privateRule`                |
+| `isPublicSuffix`    | `Bool`          | `false`                       |
+| `isRegistrableDomain` | `Bool`        | `false`                       |
+
+`MatchSource` values: `.icann`, `.privateRule`, `.defaultRule`.
+
+### Loading from custom data
+
+To load a PSL you fetched yourself, pass its raw `Data`:
+
+```swift
+let data = try Data(contentsOf: myPSLURL)
+let psl = try await PublicSuffixList.loading(from: data)
+```
 
 ### Error handling
 
-`DomainParser()` and `BasicDomainParser()` both `throws(DomainParserError)`,
-so `catch` can be exhaustive without a fallthrough clause:
+All three factory methods are `async throws(PublicSuffixListError)`, so
+`catch` can be exhaustive:
 
 ```swift
 do {
-    let parser = try DomainParser()
+    let psl = try await PublicSuffixList.bundled()
 } catch .missingPublicSuffixListResource {
     // bundled PSL file missing - should never happen in shipping builds
 } catch .ruleParsingError(let message) {
-    // bundled PSL file is malformed UTF-8 or has an unsupported rule shape
+    // PSL data is malformed UTF-8 or has an unsupported rule shape
 } catch .bundleLoadFailed(let underlying) {
-    // an I/O error reading the bundled file (e.g. CocoaError from Data(contentsOf:))
+    // an I/O error reading the bundled file
 }
 ```
 
-### Testing
+### Protocol / dependency injection
 
-`FakeDomainParser` (DEBUG builds only) is a no-op `DomainParserProtocol`
-implementation. Useful for SwiftUI previews and tests that need to inject a
-parser but don't care about the result.
+`PublicSuffixMatching` is the DI seam. Only `lookup(_:scope:) -> HostInfo?`
+is required; the protocol provides default implementations of
+`lookup(_:URL, scope:)`, `registrableDomain(of:scope:)`,
+`publicSuffix(of:scope:)`, `isPublicSuffix(_:scope:)`, and
+`haveSameRegistrableDomain(_:_:scope:)`.
+
+```swift
+func classify(host: String, using psl: some PublicSuffixMatching) -> String? {
+    psl.registrableDomain(of: host)
+}
+```
+
+### List metadata
+
+```swift
+let meta = psl.metadata
+meta.sourceDate        // Date the bundled PSL was fetched
+meta.sourceRevision    // Upstream git revision string
+meta.icannRuleCount    // Number of ICANN rules loaded
+meta.privateRuleCount  // Number of PRIVATE rules loaded
+```
 
 ## Refreshing the bundled Public Suffix List
 
@@ -132,14 +175,15 @@ directory.
 ## Internationalized domain names
 
 Hosts may be passed in either Unicode form (e.g. `公司.cn`) or
-ACE/Punycode form (e.g. `xn--55qx5d.cn`); the parser handles both and
+ACE/Punycode form (e.g. `xn--55qx5d.cn`); the library handles both and
 preserves the caller's form in the output. Internally each `xn--`-prefixed
 label is RFC 3492-decoded and compared against the bundled PSL's
 Unicode-form rules.
 
 ```swift
-parser.parse(host: "shishi.公司.cn")?.registrableDomain        // "shishi.公司.cn"
-parser.parse(host: "shishi.xn--55qx5d.cn")?.registrableDomain  // "shishi.xn--55qx5d.cn"
+let psl = try await PublicSuffixList.shared()
+psl.lookup("shishi.公司.cn")?.registrableDomain        // "shishi.公司.cn"
+psl.lookup("shishi.xn--55qx5d.cn")?.registrableDomain  // "shishi.xn--55qx5d.cn"
 ```
 
 Full UTS-46 IDNA normalization (NFC, Bidi checks, etc.) is **not**
