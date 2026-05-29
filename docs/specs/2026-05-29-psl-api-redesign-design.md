@@ -179,10 +179,17 @@ extension PublicSuffixMatching {
 Applied before matching, in this order:
 
 - **Lowercase** (Unicode-aware), as today.
-- **Trailing dot (FQDN form):** strip a single trailing `.` — `example.com.` →
-  `example.com`. A host that is *only* dots, or has a leading dot, or contains
-  an **empty label** (`foo..com`, `.com`) is rejected → `nil`. (We do not let
-  `split` silently swallow empty labels.)
+- **Trailing dot (FQDN form):** a single trailing `.` is **ignored for matching
+  but preserved in the output** — `example.com.` → registrableDomain
+  `example.com.`. This follows the PSL algorithm literally: *"A trailing dot
+  shall be added if the domain included one."* The Passie primitive
+  `haveSameRegistrableDomain` canonicalizes the trailing dot away before
+  comparing, so `example.com` and `example.com.` are still the same site.
+- **Empty / leading-dot labels → `nil`:** a host that is only dots, has a
+  *leading* dot, or contains an interior **empty label** (`foo..com`, `.com`) is
+  rejected, per *"Empty labels are not permitted."* (We do not let `split`
+  silently swallow them.) Note this is distinct from the single trailing dot
+  above, which is allowed.
 - **IP literals → `nil`:** reject both IPv4 dotted-quads (`192.168.0.1`) and
   IPv6, including the bracketed form a URL host yields (`[::1]`, `[fe80::1]`).
   An IP is not a domain and must not appear to have a registrable domain.
@@ -192,16 +199,43 @@ Applied before matching, in this order:
 
 ### Matching
 
-- **Scope.** With `.all`, PRIVATE rules are consulted first (more specific),
-  then ICANN, then the implicit `*`. With `.icannOnly`, PRIVATE rules are
-  ignored: `alice.github.io` → suffix `io` (icann), registrable `github.io`.
-- **Wildcards at any position.** Rules like `*.compute.amazonaws.com` and
-  exceptions like `!city.kawasaki.jp` are honored regardless of label position,
-  not just at the TLD.
+- **Prevailing-rule resolution (the exact PSL algorithm).** A rule *matches*
+  when the host has at least as many labels as the rule and, comparing from the
+  right, each rule label is identical to the host label or is `*`. Among all
+  matching rules pick, in order: (1) an **exception** rule if any; else (2) the
+  matching rule with the **most labels**; else (3) the implicit `*`. An
+  exception rule's public suffix is the rule minus its leftmost label. This must
+  consider basic and wildcard rules **together** — not "check wildcards, then
+  basic and stop" — so a longer basic rule correctly outranks a shorter matching
+  wildcard. (The current code's bucket-then-fallback shortcut can mis-rank that
+  case; the rewrite resolves across all matching rules.)
+- **Scope.** `.all` considers ICANN + PRIVATE rules; `.icannOnly` ignores
+  PRIVATE rules. Resolution within the chosen set is the algorithm above, so
+  `alice.github.io` → `github.io` (private) under `.all`, but `io` (icann),
+  registrable `github.io`, under `.icannOnly`.
+- **Wildcards.** Per the format, a wildcard appears only as the **leftmost label
+  of a rule** and wildcards an entire label — only a bare `*` is a wildcard
+  label (`*bar` is literal text). The rule may still be deep, e.g.
+  `*.compute.amazonaws.com` (the `*` is leftmost; the rule is four labels).
 - **IDN.** Preserve the caller's ACE/Unicode form in the output; match
   internally via Punycode-decode. See the IDNA limitation below.
 - **Errors.** Typed throws `throws(PublicSuffixListError)` on the factories
   only; queries never throw.
+
+### Edge case: too-short host under a wildcard (PSL issue #694)
+
+For a host with *fewer* labels than a wildcard rule that would otherwise cover
+it — e.g. `yokohama.jp` against rules `jp` + `*.yokohama.jp` — the wildcard does
+**not** match (the host lacks the required label count), so resolution falls
+back to the next matching rule, `jp`. Result: publicSuffix `jp`,
+registrableDomain `yokohama.jp`, source `.icann`.
+
+This is the literal-algorithm reading and matches Servo's behavior; libpsl
+instead treats the incomplete match specially and returns `yokohama.jp` as the
+suffix. [PSL issue #694](https://github.com/publicsuffix/list/issues/694) is
+unresolved upstream — we deliberately take the literal reading and **pin it with
+a test** so the choice is explicit, not accidental. (The current code already
+behaves this way.)
 
 ### Known limitation: IDNA normalization
 
@@ -266,8 +300,15 @@ deserve a narrative home:
   - Scope: same host under `.all` vs `.icannOnly` (e.g. `alice.github.io`).
   - `source`: assert `.icann` / `.privateRule` / `.defaultRule` on representative
     hosts (`example.com`, `alice.github.io`, `app.mycorp.internal`).
-  - Normalization: trailing dot, empty/leading-dot labels, IPv4 + IPv6 (incl.
-    bracketed) all → `nil`.
+  - Normalization: empty/leading-dot labels and IPv4 + IPv6 (incl. bracketed)
+    → `nil`; **trailing dot preserved** in output (`example.com.` →
+    registrableDomain `example.com.`), and `haveSameRegistrableDomain` treats
+    `example.com` ≡ `example.com.`.
+  - **Issue #694:** `yokohama.jp` / `kobe.jp` → suffix `jp`, registrable
+    `yokohama.jp` (literal-algorithm reading), and the `*.mm` family
+    (`mm`→nil suffix `mm`, `c.mm`→nil, `b.c.mm`→`b.c.mm`).
+  - **Priority resolution:** a host matching both a shorter wildcard and a
+    longer basic rule resolves to the longer rule.
   - `haveSameRegistrableDomain`: same-domain true; cross-tenant private false;
     bare-suffix / unparseable false.
   - `metadata`: counts non-zero, `sourceDate` parsed from the bundled header.
