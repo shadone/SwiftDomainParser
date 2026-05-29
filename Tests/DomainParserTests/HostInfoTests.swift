@@ -1,4 +1,3 @@
-// Tests/DomainParserTests/HostInfoTests.swift
 import Testing
 @testable import DomainParser
 

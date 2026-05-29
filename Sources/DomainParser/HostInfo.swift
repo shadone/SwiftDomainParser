@@ -1,10 +1,8 @@
-// Sources/DomainParser/HostInfo.swift
-
 /// The decomposition of a host against the Public Suffix List.
 public struct HostInfo: Sendable, Equatable, Hashable {
     /// Public suffix, e.g. "co.uk", "github.io". Always present.
     public let publicSuffix: String
-    /// Registrable domain (eTLD+1), e.g. "alice.github.io".
+    /// Registrable domain (eTLD+1), e.g. "example.co.uk".
     /// nil when the host IS a public suffix (e.g. "co.uk").
     public let registrableDomain: String?
     /// Everything left of the registrable domain, e.g. "app" in
