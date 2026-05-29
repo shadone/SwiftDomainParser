@@ -29,6 +29,16 @@ public struct PublicSuffixList: Sendable {
         try PublicSuffixList(parsed: RulesParser.parse(data))
     }
 
+    /// Convenience for callers that don't want to own the lifecycle: loads the
+    /// bundled list once and returns the cached value thereafter. Cost is still
+    /// explicit (you await); trade-off is process-lifetime retention. Use
+    /// `bundled()` to control the lifetime yourself.
+    public static func shared() async throws(PublicSuffixListError) -> PublicSuffixList {
+        do { return try await SharedListCache.instance.value() }
+        catch let e as PublicSuffixListError { throw e }
+        catch { throw .bundleLoadFailed(underlying: error) }
+    }
+
     /// Look a host up against the list. Returns nil only for non-hostnames
     /// (empty, IP literal, empty/leading label). Every real hostname yields a
     /// `HostInfo` because the implicit "*" rule guarantees a suffix.
