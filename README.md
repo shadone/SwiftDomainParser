@@ -38,7 +38,7 @@ see the [format spec](https://github.com/publicsuffix/list/wiki/Format).
 Swift Package Manager:
 
 ```swift
-.package(url: "https://github.com/shadone/PublicSuffixListKit.git", from: "2.0.0"),
+.package(url: "https://github.com/shadone/PublicSuffixListKit.git", from: "3.0.0"),
 ```
 
 then add `"PublicSuffixListKit"` to your target's dependencies.
@@ -48,7 +48,7 @@ then add `"PublicSuffixListKit"` to your target's dependencies.
 ```swift
 import PublicSuffixListKit
 
-let psl = try await PublicSuffixList.shared()   // load once, cached
+let psl = PublicSuffixList.shared   // bundled list, decoded once, cached
 
 let info = psl.lookup("app.alice.github.io")!
 info.publicSuffix        // "github.io"   (PRIVATE rule)
@@ -63,9 +63,10 @@ psl.haveSameRegistrableDomain("alice.github.io", "bob.github.io")  // false
 psl.lookup("alice.github.io", scope: .icannOnly)?.publicSuffix     // "io"
 ```
 
-Build one instance and share it — `PublicSuffixList` is an immutable `Sendable`
-value. Use `PublicSuffixList.bundled()` if you want to own its lifetime, or
-`shared()` for a process-wide cached instance.
+`PublicSuffixList.shared` is the bundled list: an immutable `Sendable` value,
+decoded from a precompiled binary blob once on first access (synchronous,
+thread-safe, ~2 ms) and cached for the process lifetime. No `await`, no `try`
+— `lookup` is a pure value query.
 
 ### From a URL
 
@@ -121,25 +122,24 @@ To load a PSL you fetched yourself, pass its raw `Data`:
 
 ```swift
 let data = try Data(contentsOf: myPSLURL)
-let psl = try await PublicSuffixList.loading(from: data)
+let psl = try PublicSuffixList.loading(from: data)
 ```
 
 ### Error handling
 
-All three factory methods are `async throws(PublicSuffixListError)`, so
-`catch` can be exhaustive:
+`loading(from:)` is synchronous and `throws(PublicSuffixListError)`, with the
+single case `ruleParsingError` (malformed UTF-8 or an unsupported rule shape):
 
 ```swift
 do {
-    let psl = try await PublicSuffixList.bundled()
-} catch .missingBundledResource {
-    // bundled PSL file missing - should never happen in shipping builds
+    let psl = try PublicSuffixList.loading(from: data)
 } catch .ruleParsingError(let message) {
-    // PSL data is malformed UTF-8 or has an unsupported rule shape
-} catch .bundleLoadFailed(let underlying) {
-    // an I/O error reading the bundled file
+    // custom PSL data is malformed UTF-8 or has an unsupported rule shape
 }
 ```
+
+`PublicSuffixList.shared` never throws: its blob is a build-time artifact, so a
+missing or corrupt one is a package defect and traps rather than throwing.
 
 ### Protocol / dependency injection
 
@@ -193,7 +193,7 @@ Lookup output preserves the caller's spelling, while the `canonical*` fields and
 comparison use the canonical form:
 
 ```swift
-let psl = try await PublicSuffixList.shared()
+let psl = PublicSuffixList.shared
 
 // Display fields round-trip the caller's spelling:
 psl.lookup("shishi.公司.cn")?.registrableDomain        // "shishi.公司.cn"

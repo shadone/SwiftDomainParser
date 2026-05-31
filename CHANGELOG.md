@@ -12,6 +12,44 @@ not currently rebased onto upstream; the last synced upstream commit was
 [`8991b16`](https://github.com/Dashlane/SwiftDomainParser/commit/8991b16)
 (Swift 6 concurrency support + PSL refresh).
 
+## [3.0.0] - 2026-05-31
+
+Loading the bundled list is now **synchronous**. The async factory was the only
+asynchronous thing in the library and guarded a cost (a ~2 ms one-time index
+build, measured) that never needed guarding; removing it drops `async`/`await`/
+`throws` from every bundled-list call site.
+
+### Changed (breaking)
+
+- `PublicSuffixList.shared` is now a synchronous, non-throwing `static let`,
+  not an `async throws` factory. It decodes a precompiled binary blob
+  (`public_suffix_list.bin`) once on first access and caches it process-wide.
+  Call sites become `PublicSuffixList.shared.lookup(...)` — no `try`, no `await`.
+- `loading(from:)` is now synchronous `throws(PublicSuffixListError)` (it still
+  parses `.dat` text for custom lists).
+- `PublicSuffixListError` is reduced to its single reachable case,
+  `ruleParsingError`. A corrupt bundled blob is a package defect and traps via
+  `preconditionFailure` rather than throwing.
+
+### Removed
+
+- The `@concurrent async` `bundled()` factory.
+- The `@concurrent async` `shared()` factory and the `SharedListCache` actor
+  behind it (a `static let` provides the once-only caching).
+- `PublicSuffixListError.missingBundledResource` and `.bundleLoadFailed`.
+
+### Internal
+
+- New `PSLBinaryFormat` (PSL1 little-endian blob, encode/decode) mirroring the
+  existing IDNA mapping table format.
+- New in-package `psl-compile` executable that reuses the real `RulesParser` to
+  generate the blob, so it can never drift from the `.dat`. `script/UpdatePSL.swift`
+  regenerates the blob after a refresh.
+- The bundle now ships only `public_suffix_list.bin`; the `.dat` is kept in-repo
+  as the generator and staleness-test input (excluded from the app bundle),
+  dropping ~142 KB of dead text from shipping builds.
+- A CI staleness guard asserts the checked-in blob matches the checked-in `.dat`.
+
 ## [2.0.0] - 2026-05-29
 
 A complete, breaking rewrite around the `PublicSuffixList` API. Not
@@ -87,5 +125,6 @@ Last release before the rewrite. Tracks Dashlane upstream through
 [`8991b16`](https://github.com/Dashlane/SwiftDomainParser/commit/8991b16):
 Swift 6 concurrency support and a refreshed bundled Public Suffix List.
 
+[3.0.0]: https://github.com/shadone/PublicSuffixListKit/compare/2.0.0...3.0.0
 [2.0.0]: https://github.com/shadone/PublicSuffixListKit/compare/1.1.1...2.0.0
 [1.1.1]: https://github.com/shadone/PublicSuffixListKit/releases/tag/1.1.1
