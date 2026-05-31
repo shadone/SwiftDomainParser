@@ -14,16 +14,20 @@ struct ResolvedRule: Sendable, Equatable {
 
 /// All rules indexed by their rightmost (literal) label. Querying fetches the
 /// small bucket for the host's rightmost label and resolves among it.
-struct RuleIndex: Sendable {
+package struct RuleIndex: Sendable {
     private let rulesByLastLabel: [String: [Rule]]
 
-    init(rules: [Rule]) {
+    package init(rules: [Rule]) {
         var byLast: [String: [Rule]] = [:]
         for rule in rules where !rule.lastLabel.isEmpty {
             byLast[rule.lastLabel, default: []].append(rule)
         }
         self.rulesByLastLabel = byLast
     }
+
+    /// Buckets keyed by rightmost label, for cross-checking two indexes are
+    /// structurally identical (the `.dat`-vs-`.bin` staleness guard).
+    package var buckets: [String: [Rule]] { rulesByLastLabel }
 
     var icannRuleCount: Int {
         rulesByLastLabel.values.reduce(0) { $0 + $1.filter { $0.section == .icann }.count }

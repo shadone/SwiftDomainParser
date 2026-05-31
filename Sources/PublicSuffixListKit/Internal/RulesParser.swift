@@ -1,12 +1,22 @@
-import Foundation
+package import Foundation
 
-struct ParsedList: Sendable {
-    let index: RuleIndex
-    let metadata: ListMetadata
+package struct ParsedList: Sendable {
+    /// Flat rules left-to-right, in priority-hint order. Retained so the
+    /// codegen tool can serialize them; the bundled list drops this array after
+    /// `PublicSuffixList` reads `index`/`metadata` out of it.
+    package let rules: [Rule]
+    package let index: RuleIndex
+    package let metadata: ListMetadata
+
+    package init(rules: [Rule], index: RuleIndex, metadata: ListMetadata) {
+        self.rules = rules
+        self.index = index
+        self.metadata = metadata
+    }
 }
 
-enum RulesParser {
-    static func parse(_ data: Data) throws(PublicSuffixListError) -> ParsedList {
+package enum RulesParser {
+    package static func parse(_ data: Data) throws(PublicSuffixListError) -> ParsedList {
         guard let text = String(data: data, encoding: .utf8) else {
             throw .ruleParsingError(message: "List bytes are not valid UTF-8.")
         }
@@ -41,7 +51,7 @@ enum RulesParser {
             sourceDate: sourceDate, sourceRevision: sourceRevision,
             icannRuleCount: index.icannRuleCount,
             privateRuleCount: index.privateRuleCount)
-        return ParsedList(index: index, metadata: metadata)
+        return ParsedList(rules: rules, index: index, metadata: metadata)
     }
 
     private static func value(of key: String, in header: Substring) -> String? {

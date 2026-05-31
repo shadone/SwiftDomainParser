@@ -1,23 +1,34 @@
 /// Which division of the PSL a rule belongs to.
-enum Section: Sendable, Equatable { case icann, privateSection }
+package enum Section: Sendable, Equatable { case icann, privateSection }
 
 /// One label of a rule.
-enum RuleLabel: Sendable, Equatable {
+package enum RuleLabel: Sendable, Equatable {
     case literal(String)
     case wildcard          // a bare "*"; per the format, only ever leftmost
 }
 
 /// A single Public Suffix List rule, parsed from one line of the list.
-struct Rule: Sendable {
+package struct Rule: Sendable, Equatable {
     /// Labels left-to-right, e.g. ["*", "ck"] or ["co", "uk"]. The leading "!"
     /// of an exception is stripped here and recorded in `isException`.
-    let labels: [RuleLabel]
-    let isException: Bool
-    let section: Section
+    package let labels: [RuleLabel]
+    package let isException: Bool
+    package let section: Section
 
     /// Rightmost label as a string — always literal in real PSL data.
     /// Used as the index key.
-    let lastLabel: String
+    package let lastLabel: String
+
+    /// Construct directly from already-parsed labels. Used when rebuilding rules
+    /// from the precompiled binary blob (`PSLBinaryFormat.decode`), bypassing
+    /// the text tokenizer.
+    package init(labels: [RuleLabel], isException: Bool, section: Section) {
+        self.labels = labels
+        self.isException = isException
+        self.section = section
+        if case .literal(let s)? = labels.last { self.lastLabel = s }
+        else { self.lastLabel = "" }
+    }
 
     init(source: Substring, section: Section) {
         let isException = source.first == "!"
@@ -37,7 +48,7 @@ struct Rule: Sendable {
     }
 
     /// Number of labels the rule constrains (bang already excluded).
-    var labelCount: Int { labels.count }
+    package var labelCount: Int { labels.count }
 
     var isWildcard: Bool { labels.contains(.wildcard) }
 
