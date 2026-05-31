@@ -6,3 +6,6 @@ fastlane/test_output
 .build/
 .DS_Store
 /Carthage/
+
+# psl-bench generated output (compiled binaries + blobs); harness sources are tracked
+experiments/psl-bench/build/
