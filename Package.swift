@@ -27,6 +27,11 @@ let package = Package(
     targets: [
         .target(
             name: "PublicSuffixListKit",
+            // public_suffix_list.dat stays in the repo as the psl-compile input
+            // and the staleness-test input (both locate it via #filePath), but
+            // is excluded from the shipped bundle: only the precompiled .bin
+            // (and idna_mapping.bin) are loaded at runtime.
+            exclude: ["Resources/public_suffix_list.dat"],
             resources: [.process("Resources")],
             swiftSettings: upcomingFeatures
         ),

@@ -2,9 +2,9 @@ public import Foundation
 
 /// Matches hostnames against the Public Suffix List.
 ///
-/// Immutable and `Sendable`: build one instance (await a factory) and share it
-/// across threads and actors. Construction parses the list; `lookup` is a pure,
-/// instant value query.
+/// Immutable and `Sendable`. Use ``shared`` for the bundled list — it decodes
+/// the precompiled blob once, synchronously, on first access. `lookup` is a
+/// pure, instant value query.
 public struct PublicSuffixList: Sendable {
     private let index: RuleIndex
 
@@ -16,27 +16,29 @@ public struct PublicSuffixList: Sendable {
         self.metadata = parsed.metadata
     }
 
-    /// Load the bundled Public Suffix List. Expensive (disk I/O + parse of
-    /// ~10K rules); runs off the caller's actor via `@concurrent`.
-    @concurrent
-    public static func bundled() async throws(PublicSuffixListError) -> PublicSuffixList {
-        try PublicSuffixList(parsed: RulesParser.parse(loadBundledData()))
-    }
+    /// The bundled Public Suffix List, decoded from the precompiled binary blob
+    /// on first access and cached for the process lifetime.
+    ///
+    /// Synchronous and non-throwing: `static let` gives lazy, thread-safe,
+    /// once-only initialization, and the blob is a build-time artifact we
+    /// generate and check in — a missing or corrupt blob can only mean the
+    /// package itself is broken, so this traps rather than throwing.
+    public static let shared: PublicSuffixList = {
+        guard let url = Bundle.module.url(forResource: "public_suffix_list",
+                                          withExtension: "bin"),
+              let data = try? Data(contentsOf: url),
+              let parsed = PSLBinaryFormat.decode(data) else {
+            preconditionFailure(
+                "PublicSuffixListKit: bundled public_suffix_list.bin is missing "
+                + "or corrupt. This is a package defect, not a runtime condition.")
+        }
+        return PublicSuffixList(parsed: parsed)
+    }()
 
-    /// Load from caller-supplied list bytes (custom lists / tests).
-    @concurrent
-    public static func loading(from data: Data) async throws(PublicSuffixListError) -> PublicSuffixList {
+    /// Load from caller-supplied list bytes (custom / non-bundled `.dat` text
+    /// lists, and tests). Parses text, so it throws.
+    public static func loading(from data: Data) throws(PublicSuffixListError) -> PublicSuffixList {
         try PublicSuffixList(parsed: RulesParser.parse(data))
-    }
-
-    /// Convenience for callers that don't want to own the lifecycle: loads the
-    /// bundled list once and returns the cached value thereafter. Cost is still
-    /// explicit (you await); trade-off is process-lifetime retention. Use
-    /// `bundled()` to control the lifetime yourself.
-    public static func shared() async throws(PublicSuffixListError) -> PublicSuffixList {
-        do { return try await SharedListCache.instance.value() }
-        catch let e as PublicSuffixListError { throw e }
-        catch { throw .bundleLoadFailed(underlying: error) }
     }
 
     /// Look a host up against the list. Returns nil only for non-hostnames
@@ -70,17 +72,5 @@ public struct PublicSuffixList: Sendable {
                         registrableDomain: registrableDomain,
                         subdomain: subdomain,
                         source: rule.source)
-    }
-
-    private static func loadBundledData() throws(PublicSuffixListError) -> Data {
-        guard let url = Bundle.module.url(forResource: "public_suffix_list",
-                                          withExtension: "dat") else {
-            throw .missingBundledResource
-        }
-        do {
-            return try Data(contentsOf: url)
-        } catch {
-            throw .bundleLoadFailed(underlying: error)
-        }
     }
 }

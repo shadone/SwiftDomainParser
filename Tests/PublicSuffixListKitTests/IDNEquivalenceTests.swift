@@ -7,8 +7,8 @@ import Testing
 struct IDNEquivalenceTests {
     // 食狮 == xn--85x722f, 公司 == xn--55qx5d (see PunycodeTests / test_psl.txt).
 
-    @Test func sameRegistrableDomainAcrossForms() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func sameRegistrableDomainAcrossForms() throws {
+        let psl = PublicSuffixList.shared
         #expect(psl.haveSameRegistrableDomain("食狮.公司.cn",
                                               "xn--85x722f.xn--55qx5d.cn"))
         // Mixed forms, and a differing subdomain that must not affect equality.
@@ -16,14 +16,14 @@ struct IDNEquivalenceTests {
                                               "食狮.xn--55qx5d.cn"))
     }
 
-    @Test func differentDomainsStayDistinctAcrossForms() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func differentDomainsStayDistinctAcrossForms() throws {
+        let psl = PublicSuffixList.shared
         #expect(!psl.haveSameRegistrableDomain("食狮.公司.cn",
                                                "xn--85x722f.com.cn"))
     }
 
-    @Test func canonicalFieldsAgreeButDisplayPreservesInput() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func canonicalFieldsAgreeButDisplayPreservesInput() throws {
+        let psl = PublicSuffixList.shared
         let u = try #require(psl.lookup("食狮.公司.cn"))
         let a = try #require(psl.lookup("xn--85x722f.xn--55qx5d.cn"))
 
@@ -37,14 +37,14 @@ struct IDNEquivalenceTests {
         #expect(a.registrableDomain == "xn--85x722f.xn--55qx5d.cn")
     }
 
-    @Test func canonicalDropsTrailingDot() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func canonicalDropsTrailingDot() throws {
+        let psl = PublicSuffixList.shared
         let info = try #require(psl.lookup("食狮.公司.cn."))
         #expect(info.canonicalRegistrableDomain == "食狮.公司.cn")
     }
 
-    @Test func uts46MappedFormsMatch() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func uts46MappedFormsMatch() throws {
+        let psl = PublicSuffixList.shared
         // FULLWIDTH "ＥＸＡＭＰＬＥ" maps to "example"; soft hyphen is ignored.
         #expect(psl.haveSameRegistrableDomain(
             "\u{FF25}\u{FF38}\u{FF21}\u{FF2D}\u{FF30}\u{FF2C}\u{FF25}.com",
@@ -53,8 +53,8 @@ struct IDNEquivalenceTests {
                                       scope: .all)?.isEmpty == false)
     }
 
-    @Test func asciiRegistrableDomainIsACE() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func asciiRegistrableDomainIsACE() throws {
+        let psl = PublicSuffixList.shared
         let idn = try #require(psl.lookup("www.食狮.公司.cn"))
         #expect(idn.asciiRegistrableDomain == "xn--85x722f.xn--55qx5d.cn")
         let ascii = try #require(psl.lookup("a.example.com"))

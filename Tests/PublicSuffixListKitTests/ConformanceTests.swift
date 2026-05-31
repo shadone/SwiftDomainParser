@@ -31,8 +31,8 @@ struct ConformanceTests {
         #expect(Self.cases.count > 50)
     }
 
-    @Test func conformance() async throws {
-        let psl = try await PublicSuffixList.bundled()
+    @Test func conformance() throws {
+        let psl = PublicSuffixList.shared
         for c in Self.cases {
             let got = psl.lookup(c.host)?.registrableDomain
             #expect(got == c.expected, "host \(c.host): got \(String(describing: got)), expected \(String(describing: c.expected))")
