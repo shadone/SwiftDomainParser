@@ -24,7 +24,7 @@ package import Foundation
 /// ```
 /// v1 stores labels inline. A string-interning table is a noted future lever
 /// (PSL's label vocabulary is far smaller than 10K) but is not needed now.
-enum PSLBinaryFormat {
+package enum PSLBinaryFormat {
     static let magic = Array("PSL1".utf8)
     static let formatVersion: UInt8 = 1
 

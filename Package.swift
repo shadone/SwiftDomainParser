@@ -30,6 +30,14 @@ let package = Package(
             resources: [.process("Resources")],
             swiftSettings: upcomingFeatures
         ),
+        // Codegen tool: compiles public_suffix_list.dat -> public_suffix_list.bin
+        // by reusing the library's real RulesParser. Not part of the .library
+        // product, so consumers never build it.
+        .executableTarget(
+            name: "psl-compile",
+            dependencies: ["PublicSuffixListKit"],
+            swiftSettings: upcomingFeatures
+        ),
         .testTarget(
             name: "PublicSuffixListKitTests",
             dependencies: ["PublicSuffixListKit"],

@@ -4,8 +4,9 @@
 //
 //  Fetches publicsuffix.org/list/public_suffix_list.dat, normalizes it
 //  (strips comments / whitespace, sorts by descending label count so
-//  highest-priority rules come first), and writes the result over the
-//  bundled copy at Sources/PublicSuffixListKit/Resources/public_suffix_list.dat.
+//  highest-priority rules come first), writes the result over the in-repo copy
+//  at Sources/PublicSuffixListKit/Resources/public_suffix_list.dat, then
+//  regenerates the precompiled blob (public_suffix_list.bin) via psl-compile.
 //
 //  Run from anywhere:
 //      swift script/UpdatePSL.swift
@@ -96,6 +97,24 @@ do {
     let normalized = try PublicSuffixListNormalizer(data: raw, sourceDate: today).normalize()
     try normalized.write(to: targetURL)
     print("Wrote \(normalized.count) bytes to \(targetURL.path)")
+
+    // Regenerate the precompiled blob from the refreshed .dat so a PSL refresh
+    // stays a single command. psl-compile reuses the real RulesParser, so the
+    // .bin can never drift from the .dat.
+    let repoRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()    // script/
+        .deletingLastPathComponent()    // repo root
+        .standardizedFileURL
+    let compile = Process()
+    compile.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    compile.arguments = ["swift", "run", "psl-compile"]
+    compile.currentDirectoryURL = repoRoot
+    try compile.run()
+    compile.waitUntilExit()
+    guard compile.terminationStatus == 0 else {
+        throw PSLUpdateError.unexpectedContent(
+            reason: "psl-compile exited with status \(compile.terminationStatus)")
+    }
 } catch {
     FileHandle.standardError.write(Data("error: \(error)\n".utf8))
     exit(1)
