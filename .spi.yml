@@ -1,0 +1,7 @@
+# Swift Package Index build manifest.
+# Tells SPI to generate and host the DocC documentation for the library target.
+# https://swiftpackageindex.com/SwiftPackageIndex/SPIManifest/documentation
+version: 1
+builder:
+  configs:
+    - documentation_targets: [PublicSuffixListKit]
