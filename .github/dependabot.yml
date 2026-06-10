@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keep the SHA-pinned GitHub Actions (checkout, gha-setup-swift) current.
+  # Dependabot bumps the pinned SHA and refreshes the `# vX.Y.Z` comment.
+  # No `swift` ecosystem: the package has no external SwiftPM dependencies.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      # One grouped PR per week instead of one per action, to cut noise.
+      actions:
+        patterns:
+          - "*"
