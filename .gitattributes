@@ -1,0 +1,12 @@
+# Normalize all text files to LF in the working tree on every platform.
+#
+# Without this, the Windows CI runner (core.autocrlf=true by default) checks out
+# the conformance fixtures with CRLF line endings. The fixture parsers in
+# ConformanceTests / IdnaTestV2Tests trim only `.whitespaces` (not `\r`) and
+# slice by fixed offsets, so a trailing `\r` makes every row fail to parse and
+# the suites load zero cases. Pinning eol=lf keeps the checkout identical to the
+# LF-only blobs stored in the index.
+* text=auto eol=lf
+
+# Precompiled blobs are binary: never apply line-ending or text filters to them.
+*.bin binary
