@@ -17,7 +17,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Show Swift version
         run: swift --version
@@ -29,7 +29,7 @@ jobs:
         run: swift test
 
       - name: Open PR if PSL changed
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: psl-refresh
           base: develop
